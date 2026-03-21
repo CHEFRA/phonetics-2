@@ -8,14 +8,15 @@ model_dir = (BASE_DIR.parent.parent / "models" / "SenseVoiceSmall").as_posix()
 
 model = AutoModel(
     model=model_dir,
-    device="cpu", # 如果有显卡，记得后续改成 "cuda"
+    device="cpu",  # 如果有显卡，记得后续改成 "cuda"，
+    disable_update=True,
 )
 
 # 处理音频路径（向上两级到项目根目录）
 audio_path = BASE_DIR.parent.parent / "data" / "audio" / "zh.mp3"
 
 res = model.generate(
-    input=audio_path.as_posix(), # 关键点：统一使用 posix 风格字符串
+    input=audio_path.as_posix(),  # 关键点：统一使用 posix 风格字符串
     # cache={},
     language="auto",
     use_itn=True,
