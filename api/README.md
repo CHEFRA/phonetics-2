@@ -16,6 +16,14 @@ cd api
 uv sync
 ```
 
+## 配置
+
+复制 `.env.example` 为 `.env` 并修改配置：
+
+```bash
+cp .env.example .env
+```
+
 ## 运行 Demo 脚本
 
 ```bash
