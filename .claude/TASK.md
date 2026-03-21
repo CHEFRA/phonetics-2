@@ -29,11 +29,11 @@ uv sync
 
 ### Step 2: FastAPI 服务
 
-- [ ] 创建 src/main.py (FastAPI 应用)
-- [ ] 创建 src/models.py (Pydantic 模型)
-- [ ] 实现音频上传接口
+- [x] 创建 main.py (FastAPI 应用)
+- [x] 创建 schema/asr.py (Pydantic 模型)
+- [x] 实现音频上传接口
 - [ ] 实现流式 ASR 接口 (SSE)
-- [ ] 添加 CORS 配置
+- [x] 添加 CORS 配置
 - [ ] 创建 api/Dockerfile
 
 ### Step 3: React 前端
