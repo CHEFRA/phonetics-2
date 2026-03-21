@@ -8,14 +8,14 @@
 
 ### Step 1: Python Demo 脚本
 
-- [x] 初始化 uv 项目 (`cd api && uv init`)
-- [x] 下载模型到 models/SenseVoiceSmall 目录
+- [X] 初始化 uv 项目 (`cd api && uv init`)
+- [X] 下载模型到 models/SenseVoiceSmall 目录
 
 ```bash
 git clone https://www.modelscope.cn/iic/SenseVoiceSmall.git models/SenseVoiceSmall
 ```
 
-- [ ] 安装依赖
+- [X] 安装依赖
 
 ```bash
 cd api
@@ -23,7 +23,7 @@ uv add funasr
 uv sync
 ```
 
-- [ ] 创建 demo/sensevoice_demo.py
+- [X] 创建 demo/sensevoice_demo.py
 
 参考: [SenseVoice 使用 funasr 部署](https://github.com/FunAudioLLM/SenseVoice/blob/main/README_zh.md#使用-funasr-部署)
 
