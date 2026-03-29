@@ -29,13 +29,13 @@ cp .env.example .env
 ## 运行 Demo 脚本
 
 ```bash
-uv run python demo/sensevoice_demo.py
+uv run python src/demo/sensevoice_demo.py
 ```
 
 ## 启动 API 服务
 
 ```bash
-uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## 测试 ASR 接口

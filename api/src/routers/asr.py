@@ -1,8 +1,8 @@
 import tempfile
 from fastapi import APIRouter, UploadFile, File
 
-from schema.asr import ASRResponse
-from services.sensevoice import sensevoice_service
+from src.schema.asr import ASRResponse
+from src.services.sensevoice import sensevoice_service
 
 router = APIRouter(tags=["asr"])
 

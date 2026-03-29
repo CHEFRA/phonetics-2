@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers.asr import router as asr_router
+from src.routers.asr import router as asr_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时预加载模型
-    from services.sensevoice import sensevoice_service
+    from src.services.sensevoice import sensevoice_service
     sensevoice_service.get_model()
     yield
 
