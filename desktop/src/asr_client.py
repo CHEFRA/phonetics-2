@@ -28,21 +28,35 @@ class ASRClient:
         self.state = "idle"  # idle -> recording -> processing -> idle
         self.listener = None
         self._pressed_keys: set = set()
+        self._trigger_lock = False  # 防止重复触发
+        self._running = True  # 运行标志
 
     def _on_press(self, key):
         """按键按下回调"""
+        # Esc 退出程序
+        if key == keyboard.Key.esc:
+            self._running = False
+            return
+
         self._pressed_keys.add(key)
         # 检测 Ctrl+Shift+Space 同时按下
         ctrl = keyboard.Key.ctrl_l in self._pressed_keys or keyboard.Key.ctrl_r in self._pressed_keys
         shift = keyboard.Key.shift_l in self._pressed_keys or keyboard.Key.shift_r in self._pressed_keys
         space = keyboard.Key.space in self._pressed_keys
 
-        if ctrl and shift and space:
+        if ctrl and shift and space and not self._trigger_lock:
+            self._trigger_lock = True
             self._toggle_recording()
 
     def _on_release(self, key):
         """按键释放回调"""
         self._pressed_keys.discard(key)
+        # 所有三个键都释放后重置触发锁
+        ctrl = keyboard.Key.ctrl_l in self._pressed_keys or keyboard.Key.ctrl_r in self._pressed_keys
+        shift = keyboard.Key.shift_l in self._pressed_keys or keyboard.Key.shift_r in self._pressed_keys
+        space = keyboard.Key.space in self._pressed_keys
+        if not (ctrl or shift or space):
+            self._trigger_lock = False
 
     def _toggle_recording(self):
         """切换录音状态"""
@@ -118,9 +132,9 @@ class ASRClient:
             pyperclip.copy(text)
 
             # 模拟粘贴
-            with pynput.keyboard.Controller() as kb:
-                kb.press(PASTE_KEY)
-                kb.release(PASTE_KEY)
+            kb = pynput.keyboard.Controller()
+            kb.press(PASTE_KEY)
+            kb.release(PASTE_KEY)
         finally:
             # 恢复原剪贴板内容
             try:
@@ -130,14 +144,20 @@ class ASRClient:
 
     def run(self):
         """启动客户端"""
-        print("监听中，按 Ctrl+Shift+Space 开始录音")
+        print("监听中，按 Ctrl+Shift+Space 开始录音，按 Esc 退出")
 
         with pynput.keyboard.Listener(
             on_press=self._on_press,
             on_release=self._on_release,
         ) as listener:
             self.listener = listener
-            listener.join()
+            # 等待监听器停止
+            while self._running and listener.is_alive():
+                import time
+                time.sleep(0.1)
+            if self.listener:
+                self.listener.stop()
+        print("已退出")
 
 
 def main():
