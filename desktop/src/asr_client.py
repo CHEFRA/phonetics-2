@@ -1,6 +1,7 @@
 """语音输入客户端主程序"""
 import os
 import tempfile
+import time
 import platform
 
 import pynput
@@ -127,20 +128,26 @@ class ASRClient:
         except Exception:
             original = ""
 
-        try:
-            # 写入识别结果到剪贴板
-            pyperclip.copy(text)
+        # 写入识别结果到剪贴板
+        pyperclip.copy(text)
+        time.sleep(0.1)
 
-            # 模拟粘贴
-            kb = pynput.keyboard.Controller()
-            kb.press(PASTE_KEY)
-            kb.release(PASTE_KEY)
-        finally:
-            # 恢复原剪贴板内容
-            try:
-                pyperclip.copy(original)
-            except Exception:
-                pass
+        # 模拟 Ctrl+V 粘贴
+        kb = pynput.keyboard.Controller()
+        time.sleep(0.1)
+        kb.press(PASTE_KEY)
+        kb.press("v")
+        kb.release("v")
+        kb.release(PASTE_KEY)
+
+        # 等待粘贴完成后再恢复剪贴板
+        time.sleep(0.3)
+
+        # 恢复原剪贴板内容
+        try:
+            pyperclip.copy(original)
+        except Exception:
+            pass
 
     def run(self):
         """启动客户端"""
@@ -153,7 +160,6 @@ class ASRClient:
             self.listener = listener
             # 等待监听器停止
             while self._running and listener.is_alive():
-                import time
                 time.sleep(0.1)
             if self.listener:
                 self.listener.stop()
