@@ -24,6 +24,8 @@ uv sync
 cp .env.example .env
 ```
 
+以下操作需要在api目录执行
+
 ## 运行 Demo 脚本
 
 ```bash
