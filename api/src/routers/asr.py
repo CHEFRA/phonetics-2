@@ -19,7 +19,8 @@ async def asr(request: Request, file: UploadFile = File(...)):
 
     # 记录开始处理
     file_size = len(file.file.read()) if file.file else 0
-    logger.info(f"开始处理 | filename={file.filename} | size={file_size} bytes")
+    file_size_mb = file_size / (1024 * 1024)
+    logger.info(f"开始处理 | filename={file.filename} | size={file_size_mb:.2f} MB")
 
     # 重置文件指针
     await file.seek(0)
