@@ -14,7 +14,7 @@ logger = setup_logger("phonetics.asr")
 async def asr(request: Request, file: UploadFile = File(...)):
     # 记录收到请求
     client_ip = request.client.host if request.client else "unknown"
-    logger.info(f"收到请求 | method=POST | path=/api/v1/asr | client={client_ip}")
+    logger.info(f"收到请求 | method=POST | path=/api/v1/asr | client={client_ip} | time={time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # 记录开始处理
     file_size = len(file.file.read()) if file.file else 0
