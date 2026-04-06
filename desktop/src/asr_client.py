@@ -112,7 +112,7 @@ class ASRClient:
     def _call_asr_api(self, wav_path: str) -> str:
         """调用 ASR API 识别音频"""
         start_time = time.time()
-        print(f"\u23F3 发送 API 请求: {ASR_API_URL}")
+        print(f"\u23F3 发送 API 请求: {ASR_API_URL} | time={time.strftime('%H:%M:%S')}")
         try:
             with open(wav_path, "rb") as f:
                 files = {"file": ("audio.wav", f, "audio/wav")}
