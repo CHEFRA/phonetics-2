@@ -1,16 +1,25 @@
+import time
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.core.logger import setup_logger
 from src.routers.asr import router as asr_router
+
+logger = setup_logger("phonetics")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时预加载模型
     from src.services.sensevoice import sensevoice_service
+    logger.info("正在加载 ASR 模型...")
+    start_time = time.time()
     sensevoice_service.get_model()
+    duration = round(time.time() - start_time, 2)
+    logger.info(f"ASR 模型加载完成，耗时 {duration}s，服务已就绪")
     yield
 
 
