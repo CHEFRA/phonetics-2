@@ -1,3 +1,4 @@
+import os
 import tempfile
 import time
 from fastapi import APIRouter, UploadFile, File, Request
@@ -24,11 +25,17 @@ async def asr(request: Request, file: UploadFile = File(...)):
     await file.seek(0)
     content = await file.read()
 
+    # 从原始文件名提取后缀
+    suffix = os.path.splitext(file.filename)[1] or ".mp3"
+
     start_time = time.time()
-    with tempfile.NamedTemporaryFile(delete=True) as tmp:
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    try:
         tmp.write(content)
-        tmp.flush()
+        tmp.close()  # 先关闭，ffmpeg 才能读取
         text = sensevoice_service.recognize(tmp.name)
+    finally:
+        os.unlink(tmp.name)  # 用完再删除
 
     duration_s = round(time.time() - start_time, 2)
 
