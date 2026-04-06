@@ -1,7 +1,7 @@
 from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 
-from core.config import MODEL_DIR, DEVICE, MODEL_KWARGS
+from src.core.config import MODEL_DIR, DEVICE, MODEL_KWARGS
 
 
 class SenseVoiceService:

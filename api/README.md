@@ -29,14 +29,19 @@ cp .env.example .env
 ## 运行 Demo 脚本
 
 ```bash
-uv run python demo/sensevoice_demo.py
+uv run python src/demo/sensevoice_demo.py
 ```
 
 ## 启动 API 服务
 
 ```bash
-uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
+
+### Windows 双击启动
+
+在 Windows 文件资源管理器中双击 `api/start.bat` 即可启动后台服务，窗口会保持打开以查看运行日志。
 
 ## 测试 ASR 接口
 
