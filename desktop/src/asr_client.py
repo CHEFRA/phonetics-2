@@ -10,7 +10,7 @@ import requests
 import scipy.io.wavfile as wavfile
 from pynput import keyboard
 
-from .audio_recorder import AudioRecorder
+from src.audio_recorder import AudioRecorder
 
 
 # API 配置
@@ -73,6 +73,7 @@ class ASRClient:
     def _start_recording(self):
         """开始录音"""
         self.state = "recording"
+        self._record_start_time = time.time()
         self.recorder.start()
         print("\U0001F534 录音中...")
 
@@ -81,6 +82,10 @@ class ASRClient:
         self.state = "processing"
         print("\u23F9 停止录音，识别中...")
         audio_data = self.recorder.stop()
+
+        # 计算录音时长
+        record_duration = time.time() - self._record_start_time
+        print(f"录音时长: {record_duration:.2f}秒")
 
         if len(audio_data) == 0:
             print("\u274C 录音为空")
@@ -106,12 +111,18 @@ class ASRClient:
 
     def _call_asr_api(self, wav_path: str) -> str:
         """调用 ASR API 识别音频"""
+        start_time = time.time()
         try:
             with open(wav_path, "rb") as f:
                 files = {"file": ("audio.wav", f, "audio/wav")}
                 response = requests.post(ASR_API_URL, files=files, timeout=30)
             response.raise_for_status()
             result = response.json()
+
+            # 计算 API 请求时长
+            api_duration = time.time() - start_time
+            print(f"API 识别时长: {api_duration:.2f}秒")
+
             return result.get("text", "")
         except requests.exceptions.RequestException as e:
             print(f"\u274C API 请求失败: {e}")
