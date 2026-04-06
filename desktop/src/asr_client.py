@@ -85,7 +85,7 @@ class ASRClient:
 
         # 计算录音时长
         record_duration = time.time() - self._record_start_time
-        print(f"录音时长: {record_duration:.2f}秒")
+        print(f"\u23F5 录音时长: {record_duration:.2f}秒")
 
         if len(audio_data) == 0:
             print("\u274C 录音为空")
@@ -112,6 +112,7 @@ class ASRClient:
     def _call_asr_api(self, wav_path: str) -> str:
         """调用 ASR API 识别音频"""
         start_time = time.time()
+        print(f"\u23F3 发送 API 请求: {ASR_API_URL}")
         try:
             with open(wav_path, "rb") as f:
                 files = {"file": ("audio.wav", f, "audio/wav")}
@@ -121,7 +122,7 @@ class ASRClient:
 
             # 计算 API 请求时长
             api_duration = time.time() - start_time
-            print(f"API 识别时长: {api_duration:.2f}秒")
+            print(f"\u23F5 API 识别时长: {api_duration:.2f}秒")
 
             return result.get("text", "")
         except requests.exceptions.RequestException as e:
