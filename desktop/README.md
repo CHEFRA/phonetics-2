@@ -16,6 +16,12 @@ brew install portaudio
 
 ## 快速开始
 
+### Windows 双击启动
+
+双击运行 `start.bat` 即可启动。
+
+### 命令行启动
+
 ```bash
 cd desktop
 
@@ -28,10 +34,11 @@ uv run python -m src.asr_client
 
 ## 使用方式
 
-1. 运行客户端，终端显示 `监听中，按 Ctrl+Shift+Space 开始录音`
+1. 运行客户端，终端显示 `监听中，按 Ctrl+Shift+Space 开始录音，按 Esc 退出`
 2. 按 `Ctrl+Shift+Space` 开始录音，终端显示 `🔴 录音中...`
 3. 再次按 `Ctrl+Shift+Space` 停止录音，终端显示 `⏹ 停止录音，识别中...`
 4. 识别结果自动粘贴到当前焦点窗口，并打印 `✅ {识别结果}`
+5. 按 `Esc` 退出客户端
 
 ## 注意事项
 
