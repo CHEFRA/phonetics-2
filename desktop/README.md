@@ -16,6 +16,12 @@ brew install portaudio
 
 ## 快速开始
 
+### Windows 双击启动
+
+双击运行 `start.bat` 即可启动。
+
+### 命令行启动
+
 ```bash
 cd desktop
 
