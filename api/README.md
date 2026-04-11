@@ -1,5 +1,9 @@
 # Phonetics-2 API
 
+## TODO
+
+- [ ] 将桌面客户端脚本迁移到 api 目录下，直接调用本地模型，去掉 HTTP 层，提升速度。监听输入设备事件。
+
 ## 系统依赖
 
 ```bash
@@ -40,9 +44,13 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Windows 双击启动
+
 #### 服务在wsl
+
 在 Windows 文件资源管理器中双击 `api/start.bat` 即可启动后台服务，窗口会保持打开以查看运行日志。
+
 #### 服务在windows
+
 `api\start-windows.bat`
 
 ## 测试 ASR 接口
