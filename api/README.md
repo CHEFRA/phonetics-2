@@ -2,6 +2,12 @@
 
 ## TODO
 
+- [ ] api\desktop\audio_recorder.py
+  - [ ] 日志优化
+  - [ ] 快捷键自定义
+  - [ ] macos适配
+- [ ] funasr内存三倍占用优化
+- [ ] 第一个可用bat，版本管理，合并到master
 - [x] 将桌面客户端脚本迁移到 api 目录下，直接调用本地模型，去掉 HTTP 层，提升速度。监听输入设备事件。
 
 ## 系统依赖
@@ -91,6 +97,7 @@ uv run python desktop/asr_client.py
 ```
 
 操作：
+
 - **Ctrl+Shift+Space**: 开始/停止录音
 - **Esc**: 退出程序
 
