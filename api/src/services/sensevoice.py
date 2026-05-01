@@ -1,3 +1,7 @@
+import os
+import time
+
+import psutil
 from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 
@@ -10,10 +14,25 @@ class SenseVoiceService:
     @classmethod
     def get_model(cls):
         if cls._model is None:
+            proc = psutil.Process(os.getpid())
+            mem_before = proc.memory_info().rss
+            start_time = time.time()
+
             cls._model = AutoModel(
                 model=MODEL_DIR,
                 device=DEVICE,
                 **MODEL_KWARGS,
+            )
+
+            duration = time.time() - start_time
+            mem_after = proc.memory_info().rss
+            delta_mb = (mem_after - mem_before) / 1024 / 1024
+
+            print(
+                f"[sensevoice] 模型加载完成 | "
+                f"耗时={duration:.2f}s | "
+                f"内存={mem_before / 1024 / 1024:.0f}MB→{mem_after / 1024 / 1024:.0f}MB | "
+                f"增量={delta_mb:+.0f}MB"
             )
         return cls._model
 
