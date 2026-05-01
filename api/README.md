@@ -93,3 +93,13 @@ uv run python desktop/asr_client.py
 操作：
 - **Ctrl+Shift+Space**: 开始/停止录音
 - **Esc**: 退出程序
+
+### 启动脚本
+
+`scripts/phonetics-asr.bat` 是一键启动脚本，两种使用方式：
+
+- **直接双击**：打开 `api/scripts/` 文件夹，双击 `phonetics-asr.bat`
+- **桌面快捷方式**（方便日常使用）：
+  1. 打开 `api/scripts/` 文件夹
+  2. 右键 `phonetics-asr.bat` → 发送到 → 桌面快捷方式
+  3. 创建后双击桌面图标启动
