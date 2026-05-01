@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] 将桌面客户端脚本迁移到 api 目录下，直接调用本地模型，去掉 HTTP 层，提升速度。监听输入设备事件。
+- [x] 将桌面客户端脚本迁移到 api 目录下，直接调用本地模型，去掉 HTTP 层，提升速度。监听输入设备事件。
 
 ## 系统依赖
 
@@ -80,3 +80,16 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```bash
 curl -X POST "http://localhost:8000/api/v1/asr" -F "file=@../data/audio/zh.mp3"
 ```
+
+## 桌面客户端（直接调用本地模型）
+
+无需启动 API 服务，直接录制麦克风音频并识别。
+
+```bash
+uv sync --extra desktop
+uv run python desktop/asr_client.py
+```
+
+操作：
+- **Ctrl+Shift+Space**: 开始/停止录音
+- **Esc**: 退出程序
