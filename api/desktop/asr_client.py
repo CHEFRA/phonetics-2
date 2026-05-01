@@ -142,43 +142,61 @@ class ASRClient:
         except Exception:
             pass
 
+    def _cleanup(self):
+        """清理资源"""
+        if self.recorder._stream is not None:
+            try:
+                self.recorder.stop()
+            except Exception:
+                pass
+        if self.listener is not None:
+            try:
+                self.listener.stop()
+            except Exception:
+                pass
+
     def run(self):
         """启动客户端"""
         print("正在加载模型...")
         sensevoice_service.get_model()
         print("监听中，按 Ctrl+Shift+Space 开始录音，按 Esc 退出")
 
-        with pynput.keyboard.Listener(
-            on_press=self._on_press,
-            on_release=self._on_release,
-        ) as listener:
-            self.listener = listener
-            while self._running and listener.is_alive():
-                if self._pending_audio is not None:
-                    audio_data = self._pending_audio
-                    self._pending_audio = None
-                    self.state = "processing"
+        try:
+            with pynput.keyboard.Listener(
+                on_press=self._on_press,
+                on_release=self._on_release,
+            ) as listener:
+                self.listener = listener
+                while self._running and listener.is_alive():
+                    if self._pending_audio is not None:
+                        audio_data = self._pending_audio
+                        self._pending_audio = None
+                        self.state = "processing"
 
-                    # 保存临时 wav 文件（模型需要文件路径输入）
-                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                        temp_wav = f.name
+                        # 保存临时 wav 文件（模型需要文件路径输入）
+                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                            temp_wav = f.name
 
-                    try:
-                        wavfile.write(temp_wav, AudioRecorder.SAMPLERATE, audio_data)
-                        text = self._recognize(temp_wav)
-                        if text:
-                            time.sleep(PASTE_DELAY)  # 避开热键释放
-                            self._paste_to_focus(text)
-                            print(f"✅ {text}")
-                        else:
-                            print("❌ 识别失败")
-                    finally:
-                        os.unlink(temp_wav)
+                        try:
+                            wavfile.write(temp_wav, AudioRecorder.SAMPLERATE, audio_data)
+                            text = self._recognize(temp_wav)
+                            if text:
+                                time.sleep(PASTE_DELAY)  # 避开热键释放
+                                self._paste_to_focus(text)
+                                print(f"✅ {text}")
+                            else:
+                                print("❌ 识别失败")
+                        finally:
+                            os.unlink(temp_wav)
 
-                    self.state = "idle"
-                time.sleep(0.1)
-            if self.listener:
-                self.listener.stop()
+                        self.state = "idle"
+                    time.sleep(0.1)
+                if self.listener:
+                    self.listener.stop()
+        except KeyboardInterrupt:
+            print("\n收到 Ctrl+C，正在退出...")
+        finally:
+            self._cleanup()
         print("已退出")
 
 
