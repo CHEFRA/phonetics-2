@@ -30,6 +30,28 @@ cp .env.example .env
 
 以下操作需要在api目录执行
 
+## 下载模型
+
+模型需要下载到项目根目录下的 `models/` 目录（与 `api/` 平级）。请确保已正确安装 git lfs。
+
+```bash
+# 回到项目根目录
+cd ..
+
+# 安装 git lfs（如已安装可跳过）
+git lfs install
+
+# 克隆模型到 models/SenseVoiceSmall
+git clone https://www.modelscope.cn/iic/SenseVoiceSmall.git models/SenseVoiceSmall
+
+# 完成后回到 api 目录
+cd api
+```
+
+模型路径为 `models/SenseVoiceSmall`，项目默认从该路径加载模型。
+
+参考：[SenseVoiceSmall - ModelScope](https://www.modelscope.cn/models/iic/SenseVoiceSmall)
+
 ## 运行 Demo 脚本
 
 ```bash
