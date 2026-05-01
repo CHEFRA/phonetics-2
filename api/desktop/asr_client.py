@@ -102,7 +102,7 @@ class ASRClient:
     def _recognize(self, wav_path: str) -> str:
         """直接调用本地模型识别音频"""
         start_time = time.time()
-        print(f"⏳ 调用本地模型 | time={time.strftime('%H:%M:%S')}")
+        # print(f"⏳ 调用本地模型 | time={time.strftime('%H:%M:%S')}")
         try:
             text = sensevoice_service.recognize(wav_path)
 
@@ -174,11 +174,15 @@ class ASRClient:
                         self.state = "processing"
 
                         # 保存临时 wav 文件（模型需要文件路径输入）
-                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".wav", delete=False
+                        ) as f:
                             temp_wav = f.name
 
                         try:
-                            wavfile.write(temp_wav, AudioRecorder.SAMPLERATE, audio_data)
+                            wavfile.write(
+                                temp_wav, AudioRecorder.SAMPLERATE, audio_data
+                            )
                             text = self._recognize(temp_wav)
                             if text:
                                 time.sleep(PASTE_DELAY)  # 避开热键释放
