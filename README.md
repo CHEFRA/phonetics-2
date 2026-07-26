@@ -7,7 +7,7 @@
 - **ASR 引擎**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) via FunASR
 - **后端**: FastAPI + Python
 - **前端**: React + TypeScript + Vite + TailwindCSS
-- **桌面客户端**: Python (pynput 全局热键 + FunASR)
+- **桌面客户端**: Python (pynput 全局热键 + FunASR, 系统托盘)
 
 ## 模块导航
 

@@ -1,9 +1,28 @@
 """语音输入客户端主程序（直接调用本地模型）"""
 
+import logging
 import os
+import sys
 import tempfile
 import time
 import platform
+
+# 日志配置（写入临时目录，方便 pythonw 模式下排查）
+_log_file = os.path.join(tempfile.gettempdir(), "phonetics-asr.log")
+logging.basicConfig(
+    filename=_log_file,
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    force=True,
+)
+
+
+def _log_exception(exc_type, exc_value, exc_traceback):
+    """捕获未处理的异常并写入日志"""
+    logging.error("未捕获的异常", exc_info=(exc_type, exc_value, exc_traceback))
+
+
+sys.excepthook = _log_exception
 
 import pynput
 import pyperclip
@@ -12,6 +31,13 @@ from pynput import keyboard
 
 from audio_recorder import AudioRecorder
 from src.services.sensevoice import sensevoice_service
+
+try:
+    from tray_icon import TrayIcon
+
+    HAS_TRAY = True
+except ImportError:
+    HAS_TRAY = False
 
 # 平台配置
 IS_MAC = platform.system() == "Darwin"
@@ -35,6 +61,17 @@ class ASRClient:
         self._trigger_lock = False
         self._running = True
         self._pending_audio = None
+        self.tray = TrayIcon(on_quit=self._on_tray_quit) if HAS_TRAY else None
+
+    def _on_tray_quit(self):
+        """托盘菜单"退出"点击回调"""
+        self._running = False
+
+    def _set_state(self, state: str):
+        """统一设置状态并同步托盘图标"""
+        self.state = state
+        if self.tray:
+            self.tray.set_state(state)
 
     def _on_press(self, key):
         """按键按下回调"""
@@ -66,7 +103,7 @@ class ASRClient:
 
     def _start_recording(self):
         """开始录音"""
-        self.state = "recording"
+        self._set_state("recording")
         self._record_start_time = time.time()
         self.recorder.start()
         print("\U0001f534 录音中...")
@@ -81,8 +118,12 @@ class ASRClient:
 
         if len(audio_data) == 0:
             print("❌ 录音为空")
+            logging.warning("录音为空")
             return
 
+        logging.info(
+            f"录音完成, 时长={record_duration:.2f}s, 采样数={len(audio_data)}"
+        )
         self._pending_audio = audio_data
 
     def _recognize(self, wav_path: str) -> str:
@@ -94,10 +135,12 @@ class ASRClient:
 
             api_duration = time.time() - start_time
             print(f"⏵ 识别时长: {api_duration:.2f}秒")
+            logging.info(f"识别完成, 时长={api_duration:.2f}s, text='{text[:50]}'")
 
             return text
         except Exception as e:
             print(f"❌ 识别出错: {e}")
+            logging.error("识别异常", exc_info=True)
             return ""
 
     def _paste_to_focus(self, text: str):
@@ -130,6 +173,8 @@ class ASRClient:
 
     def _cleanup(self):
         """清理资源"""
+        if self.tray:
+            self.tray.stop()
         if self.recorder._stream is not None:
             try:
                 self.recorder.stop()
@@ -143,8 +188,15 @@ class ASRClient:
 
     def run(self):
         """启动客户端"""
+        # 先显示托盘图标（蓝色加载中状态），再加载模型
+        if self.tray:
+            self.tray.start()
+            self.tray.set_state("loading")
         print("正在加载模型...")
+        logging.info("开始加载模型")
         sensevoice_service.get_model()
+        self._set_state("idle")
+        logging.info("模型加载完成")
         print("监听中，按 F8 开始录音，按 Esc 退出")
 
         try:
@@ -157,7 +209,8 @@ class ASRClient:
                     if self._pending_audio is not None:
                         audio_data = self._pending_audio
                         self._pending_audio = None
-                        self.state = "processing"
+                        self._set_state("processing")
+                        logging.info(f"开始处理音频, 采样数={len(audio_data)}")
 
                         # 保存临时 wav 文件（模型需要文件路径输入）
                         with tempfile.NamedTemporaryFile(
@@ -171,6 +224,8 @@ class ASRClient:
                             )
                             text = self._recognize(temp_wav)
                             if text:
+                                if self.tray:
+                                    self.tray.notify(text, "语音识别结果")
                                 time.sleep(PASTE_DELAY)  # 避开热键释放
                                 self._paste_to_focus(text)
                                 print(f"✅ {text}")
@@ -179,7 +234,7 @@ class ASRClient:
                         finally:
                             os.unlink(temp_wav)
 
-                        self.state = "idle"
+                        self._set_state("idle")
                     time.sleep(0.1)
                 if self.listener:
                     self.listener.stop()

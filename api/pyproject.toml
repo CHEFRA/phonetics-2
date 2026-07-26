@@ -23,9 +23,13 @@ build-backend = "setuptools.build_meta"
 include = ["src", "src.*"]
 
 [project.optional-dependencies]
-desktop = [
+cli = [
     "pynput>=1.7.7",
     "sounddevice>=0.5.2",
     "scipy>=1.14.0",
     "pyperclip>=1.9.0",
+]
+tray = [
+    "pystray>=0.19.5",
+    "pillow>=10.0.0",
 ]
