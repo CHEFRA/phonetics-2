@@ -2,7 +2,6 @@
 
 ## TODO
 
-- [ ] 移除/desktop重复内容
 - [ ] api\desktop\audio_recorder.py
   - [ ] 日志优化
   - [ ] 快捷键自定义

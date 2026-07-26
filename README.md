@@ -7,7 +7,7 @@
 - **ASR 引擎**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) via FunASR
 - **后端**: FastAPI + Python
 - **前端**: React + TypeScript + Vite + TailwindCSS
-- **桌面客户端**: Electron
+- **桌面客户端**: Python (pynput 全局热键 + FunASR)
 
 ## 项目结构
 
@@ -16,9 +16,9 @@ phonetics-2/
 ├── api/           # FastAPI 服务 + Demo 脚本
 │   ├── demo/      # Demo 脚本
 │   ├── src/       # API 源码
+│   ├── desktop/   # 桌面客户端（直接调用本地模型）
 │   └── README.md  # API 文档
 ├── web/           # React 前端
-├── desktop/       # Electron 桌面客户端
 ├── data/          # 测试音频数据
 └── docs/          # 文档
 ```

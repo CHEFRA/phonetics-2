@@ -18,6 +18,11 @@ IS_MAC = platform.system() == "Darwin"
 PASTE_KEY = keyboard.Key.cmd if IS_MAC else keyboard.Key.ctrl
 PASTE_DELAY = 0.618  # 粘贴前等待时间（秒），用于避开热键释放
 
+# 热键配置（修改此处即可更改快捷键）
+# 单键：{keyboard.Key.f8}
+# 组合键：{keyboard.Key.ctrl_l, keyboard.Key.shift_l, keyboard.Key.space}
+HOTKEY_KEYS = {keyboard.Key.f8}
+
 
 class ASRClient:
     """语音输入客户端"""
@@ -26,6 +31,7 @@ class ASRClient:
         self.recorder = AudioRecorder()
         self.state = "idle"  # idle -> recording -> processing -> idle
         self.listener = None
+        self._pressed_keys: set = set()
         self._trigger_lock = False
         self._running = True
         self._pending_audio = None
@@ -36,13 +42,15 @@ class ASRClient:
             self._running = False
             return
 
-        if key == keyboard.Key.f8 and not self._trigger_lock:
+        self._pressed_keys.add(key)
+        if HOTKEY_KEYS.issubset(self._pressed_keys) and not self._trigger_lock:
             self._trigger_lock = True
             self._toggle_recording()
 
     def _on_release(self, key):
         """按键释放回调"""
-        if key == keyboard.Key.f8:
+        self._pressed_keys.discard(key)
+        if not HOTKEY_KEYS.intersection(self._pressed_keys):
             self._trigger_lock = False
 
     def _toggle_recording(self):

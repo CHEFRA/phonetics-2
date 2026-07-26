@@ -17,7 +17,7 @@
 ### 前端
 
 - Web: React + TypeScript + Vite + TailwindCSS + shadcn/ui
-- 桌面客户端: Electron + React + TypeScript
+- 桌面客户端: Python (pynput 全局热键 + FunASR)
 
 ### 部署
 
@@ -81,9 +81,9 @@ phonetics-2/
 ├── api/           # FastAPI 服务 + Demo 脚本（共享 uv venv）
 │   ├── src/       # API 源码
 │   ├── demo/      # Demo 脚本
+│   ├── desktop/   # 桌面客户端（直接调用本地模型）
 │   └── pyproject.toml
 ├── web/           # React 前端
-├── desktop/       # Electron 桌面客户端
 └── docs/          # 文档
 ```
 
@@ -138,5 +138,5 @@ docs: 更新 README
 ## 开发说明
 
 - Demo 脚本放在 api/demo/ 目录下，共享同一个 uv 虚拟环境
-- 桌面客户端使用 Electron，支持通过全局快捷键激活语音输入
-- ASR 识别结果可通过 Electron API 直接注入到文本输入框
+- 桌面客户端使用 Python (pynput) 全局热键激活语音输入，通过直接调用本地模型识别
+- ASR 识别结果可通过 pyperclip 粘贴到焦点窗口
