@@ -76,7 +76,10 @@ class ASRClient:
     def _on_press(self, key):
         """按键按下回调"""
         if key == keyboard.Key.esc:
-            self._running = False
+            if self.state == "recording":
+                self._cancel_recording()
+            else:
+                self._running = False
             return
 
         self._pressed_keys.add(key)
@@ -125,6 +128,14 @@ class ASRClient:
             f"录音完成, 时长={record_duration:.2f}s, 采样数={len(audio_data)}"
         )
         self._pending_audio = audio_data
+
+    def _cancel_recording(self):
+        """取消当前录音，丢弃音频，回到空闲"""
+        self.recorder.stop()
+        self._pending_audio = None
+        self._set_state("idle")
+        print("⏹ 已取消录音")
+        logging.info("录音已取消")
 
     def _recognize(self, wav_path: str) -> str:
         """直接调用本地模型识别音频"""
