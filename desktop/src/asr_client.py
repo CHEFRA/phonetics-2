@@ -28,35 +28,22 @@ class ASRClient:
         self.recorder = AudioRecorder()
         self.state = "idle"  # idle -> recording -> processing -> idle
         self.listener = None
-        self._pressed_keys: set = set()
         self._trigger_lock = False  # 防止重复触发
         self._running = True  # 运行标志
 
     def _on_press(self, key):
         """按键按下回调"""
-        # Esc 退出程序
         if key == keyboard.Key.esc:
             self._running = False
             return
 
-        self._pressed_keys.add(key)
-        # 检测 Ctrl+Shift+Space 同时按下
-        ctrl = keyboard.Key.ctrl_l in self._pressed_keys or keyboard.Key.ctrl_r in self._pressed_keys
-        shift = keyboard.Key.shift_l in self._pressed_keys or keyboard.Key.shift_r in self._pressed_keys
-        space = keyboard.Key.space in self._pressed_keys
-
-        if ctrl and shift and space and not self._trigger_lock:
+        if key == keyboard.Key.f8 and not self._trigger_lock:
             self._trigger_lock = True
             self._toggle_recording()
 
     def _on_release(self, key):
         """按键释放回调"""
-        self._pressed_keys.discard(key)
-        # 所有三个键都释放后重置触发锁
-        ctrl = keyboard.Key.ctrl_l in self._pressed_keys or keyboard.Key.ctrl_r in self._pressed_keys
-        shift = keyboard.Key.shift_l in self._pressed_keys or keyboard.Key.shift_r in self._pressed_keys
-        space = keyboard.Key.space in self._pressed_keys
-        if not (ctrl or shift or space):
+        if key == keyboard.Key.f8:
             self._trigger_lock = False
 
     def _toggle_recording(self):
@@ -163,7 +150,7 @@ class ASRClient:
 
     def run(self):
         """启动客户端"""
-        print("监听中，按 Ctrl+Shift+Space 开始录音，按 Esc 退出")
+        print("监听中，按 F8 开始录音，按 Esc 退出")
 
         with pynput.keyboard.Listener(
             on_press=self._on_press,

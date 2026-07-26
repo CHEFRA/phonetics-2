@@ -26,7 +26,6 @@ class ASRClient:
         self.recorder = AudioRecorder()
         self.state = "idle"  # idle -> recording -> processing -> idle
         self.listener = None
-        self._pressed_keys: set = set()
         self._trigger_lock = False
         self._running = True
         self._pending_audio = None
@@ -37,34 +36,13 @@ class ASRClient:
             self._running = False
             return
 
-        self._pressed_keys.add(key)
-        ctrl = (
-            keyboard.Key.ctrl_l in self._pressed_keys
-            or keyboard.Key.ctrl_r in self._pressed_keys
-        )
-        shift = (
-            keyboard.Key.shift_l in self._pressed_keys
-            or keyboard.Key.shift_r in self._pressed_keys
-        )
-        space = keyboard.Key.space in self._pressed_keys
-
-        if ctrl and shift and space and not self._trigger_lock:
+        if key == keyboard.Key.f8 and not self._trigger_lock:
             self._trigger_lock = True
             self._toggle_recording()
 
     def _on_release(self, key):
         """按键释放回调"""
-        self._pressed_keys.discard(key)
-        ctrl = (
-            keyboard.Key.ctrl_l in self._pressed_keys
-            or keyboard.Key.ctrl_r in self._pressed_keys
-        )
-        shift = (
-            keyboard.Key.shift_l in self._pressed_keys
-            or keyboard.Key.shift_r in self._pressed_keys
-        )
-        space = keyboard.Key.space in self._pressed_keys
-        if not (ctrl or shift or space):
+        if key == keyboard.Key.f8:
             self._trigger_lock = False
 
     def _toggle_recording(self):
@@ -159,7 +137,7 @@ class ASRClient:
         """启动客户端"""
         print("正在加载模型...")
         sensevoice_service.get_model()
-        print("监听中，按 Ctrl+Shift+Space 开始录音，按 Esc 退出")
+        print("监听中，按 F8 开始录音，按 Esc 退出")
 
         try:
             with pynput.keyboard.Listener(

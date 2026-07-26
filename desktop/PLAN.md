@@ -8,7 +8,7 @@
 
 ```json
 {
-  "hotkey": "ctrl+shift+space",
+  "hotkey": "f8",
   "exit_key": "esc",
   "api_url": "http://localhost:8000/api/v1/asr"
 }
@@ -16,14 +16,14 @@
 
 支持的快捷键格式：
 
-- `ctrl+shift+space` - Ctrl+Shift+Space
+- `f8` - F8
 - `ctrl+alt+v` - Ctrl+Alt+V
 - `cmd+shift+s` - Command+Shift+S（macOS）
 
 ### 环境变量
 
 ```bash
-export ASR_HOTKEY="ctrl+shift+space"
+export ASR_HOTKEY="f8"
 export ASR_API_URL="http://localhost:8000/api/v1/asr"
 ```
 
@@ -33,7 +33,7 @@ export ASR_API_URL="http://localhost:8000/api/v1/asr"
 
 ### 默认快捷键
 
-- Windows/Linux: `Ctrl+Shift+Space` 开始/停止录音，`Esc` 退出
+- Windows/Linux: `F8` 开始/停止录音，`Esc` 退出
 - macOS: `Cmd+Shift+Space` 开始/停止录音，`Esc` 退出
 
 ---

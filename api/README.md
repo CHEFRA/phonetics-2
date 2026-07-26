@@ -2,6 +2,7 @@
 
 ## TODO
 
+- [ ] 移除/desktop重复内容
 - [ ] api\desktop\audio_recorder.py
   - [ ] 日志优化
   - [ ] 快捷键自定义
@@ -98,7 +99,7 @@ uv run python desktop/asr_client.py
 
 操作：
 
-- **Ctrl+Shift+Space**: 开始/停止录音
+- **F8**: 开始/停止录音
 - **Esc**: 退出程序
 
 ### 启动脚本
