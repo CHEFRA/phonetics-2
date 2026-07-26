@@ -78,8 +78,6 @@ class ASRClient:
         if key == keyboard.Key.esc:
             if self.state == "recording":
                 self._cancel_recording()
-            else:
-                self._running = False
             return
 
         self._pressed_keys.add(key)
