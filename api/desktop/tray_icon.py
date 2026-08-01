@@ -2,13 +2,17 @@
 
 使用 pystray + Pillow 在 Windows 通知区域显示图标，
 支持空闲/录音中/处理中三种状态的颜色变化和气泡通知。
+悬浮提示实时显示当前进程内存占用。
 
 注意: 这是托盘模块的唯一副本。如果需要给 desktop/ 下的
 HTTP API 版也加上托盘，复制此文件过去即可。
 """
 
+import os
 import threading
+import time
 
+import psutil
 import pystray
 from PIL import Image, ImageDraw
 
@@ -29,6 +33,14 @@ _STATUS_LABELS = {
 }
 
 _ICON_SIZE = 64  # 绘制尺寸，pystray 会自动缩放到系统要求
+_MEMORY_REFRESH_INTERVAL = 2.0  # 悬浮提示内存刷新间隔（秒）
+
+
+def _format_memory(mb: float) -> str:
+    """把 MB 换算成易读字符串（与任务管理器口径一致）"""
+    if mb >= 1024:
+        return f"{mb / 1024:.1f} GB"
+    return f"{mb:.0f} MB"
 
 
 def _create_icon_image(state: str = "idle") -> Image.Image:
@@ -56,6 +68,9 @@ class TrayIcon:
         self._state = "idle"
         self._icon = None
         self._thread = None
+        self._mem_refresh = False
+        self._mem_thread = None
+        self._last_title = None
 
     def _build_menu(self):
         """构建右键菜单：状态文字 + 分隔线 + 退出"""
@@ -82,10 +97,37 @@ class TrayIcon:
         if self._icon is not None:
             try:
                 self._icon.icon = _create_icon_image(state)
-                self._icon.title = _STATUS_LABELS.get(state, state)
                 self._icon.menu = self._build_menu()
             except Exception:
                 pass  # 托盘不可用时静默忽略
+            self._update_title()  # 状态变化时立即刷新悬浮提示
+
+    @staticmethod
+    def _get_memory_mb() -> float:
+        """当前进程物理内存占用（MB），与任务管理器口径一致"""
+        try:
+            return psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+        except Exception:
+            return 0.0
+
+    def _update_title(self):
+        """把"状态 + 实时内存"写入悬浮提示；内容不变时跳过更新"""
+        if self._icon is None:
+            return
+        status = _STATUS_LABELS.get(self._state, self._state)
+        title = f"{status} | 内存 {_format_memory(self._get_memory_mb())}"
+        if title != self._last_title:
+            self._last_title = title
+            try:
+                self._icon.title = title
+            except Exception:
+                pass
+
+    def _mem_loop(self):
+        """后台刷新悬浮提示中的内存占用"""
+        while self._mem_refresh:
+            self._update_title()
+            time.sleep(_MEMORY_REFRESH_INTERVAL)
 
     def notify(self, text: str, title: str = "语音输入"):
         """弹出 Windows 气泡通知显示识别结果"""
@@ -106,14 +148,20 @@ class TrayIcon:
         self._icon.run()
 
     def start(self):
-        """启动托盘线程"""
+        """启动托盘线程 + 内存监控线程"""
         if self._thread is not None and self._thread.is_alive():
             return
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
 
+        self._mem_refresh = True
+        self._mem_thread = threading.Thread(target=self._mem_loop, daemon=True)
+        self._mem_thread.start()
+
     def stop(self):
-        """停止托盘图标（幂等，可重复调用）"""
+        """停止托盘图标和内存监控（幂等，可重复调用）"""
+        self._mem_refresh = False
+        self._last_title = None
         if self._icon is not None:
             try:
                 self._icon.stop()
