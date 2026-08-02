@@ -7,8 +7,9 @@
   - [ ] 快捷键自定义
   - [ ] macos适配
 - [ ] funasr内存三倍占用优化
-- [ ] 第一个可用bat，版本管理，合并到master
+- [x] 第一个可用bat，版本管理，合并到master
 - [x] 将桌面客户端脚本迁移到 api 目录下，直接调用本地模型，去掉 HTTP 层，提升速度。监听输入设备事件。
+- [x] SQLite 识别历史入库（文本、录音时长、推理耗时、RTF）
 
 ## 系统依赖
 
@@ -106,8 +107,9 @@ uv run python desktop/asr_client.py
 
 操作：
 
-- **F8**: 开始/停止录音
-- **Esc**: 退出程序
+- F8: 开始/停止录音
+- Esc: 录音中取消录音
+- 退出: 托盘右键菜单选择"退出"
 
 ### 系统托盘图标
 
@@ -128,8 +130,8 @@ uv run python desktop/asr_client.py
 
 `scripts/phonetics-asr.bat` 是一键启动脚本，两种使用方式：
 
-- **直接双击**：打开 `api/scripts/` 文件夹，双击 `phonetics-asr.bat`
-- **桌面快捷方式**（方便日常使用）：
+- 直接双击：打开 `api/scripts/` 文件夹，双击 `phonetics-asr.bat`
+- 桌面快捷方式（方便日常使用）：
   1. 打开 `api/scripts/` 文件夹
 2. 右键 `phonetics-asr.bat` → 发送到 → 桌面快捷方式
 3. 创建后双击桌面图标启动
@@ -145,6 +147,8 @@ uv run python desktop/asr_client.py
 - 录音时长、推理耗时、RTF（推理耗时/录音时长）
 - 推理前后进程内存
 - 状态（success / empty / error）
+
+识别结果会自动清除 emoji 表情符号。
 
 命令行快速查看统计：
 
