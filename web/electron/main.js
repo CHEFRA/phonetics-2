@@ -225,7 +225,16 @@ if (!gotLock) {
         console.log(
           `[smoke] ok state=${status.state} model=${status.model} version=${status.version}`,
         );
-        app.exit(0);
+        try {
+          sendRequest("quit").catch(() => {});
+        } catch {
+          // 子进程可能已退出
+        }
+        setTimeout(() => {
+          forceKillSidecar();
+          app.exit(0);
+        }, 300);
+        setTimeout(() => process.exit(0), 4000);
       } catch (err) {
         console.error("[smoke] failed:", err.message || err);
         app.exit(1);

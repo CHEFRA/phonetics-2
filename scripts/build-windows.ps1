@@ -19,7 +19,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-npx electron-builder --win nsis --config electron-builder.yml
+node node_modules/electron-builder/cli.js --win nsis --config electron-builder.yml
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "安装包输出目录: $WebDir\release"
