@@ -1,7 +1,7 @@
 """系统托盘图标模块
 
 使用 pystray + Pillow 在 Windows 通知区域显示图标，
-支持空闲/录音中/处理中三种状态的颜色变化和气泡通知。
+支持空闲/录音中/流式监听中/处理中四种状态的颜色变化和气泡通知。
 悬浮提示实时显示当前进程内存占用。
 
 注意: 这是托盘模块的唯一副本。如果需要给 desktop/ 下的
@@ -21,6 +21,7 @@ _COLORS = {
     "loading": (33, 150, 243),   # 蓝色 Material Blue 500
     "idle": (76, 175, 80),       # 绿色 Material Green 500
     "recording": (244, 67, 54),  # 红色 Material Red 500
+    "streaming": (244, 67, 54),   # 红色（流式监听中）
     "processing": (255, 193, 7), # 黄色 Material Amber 500
 }
 
@@ -29,6 +30,7 @@ _STATUS_LABELS = {
     "loading": "正在加载模型中...",
     "idle": "空闲中 — 按 F8 录音",
     "recording": "录音中...",
+    "streaming": "流式监听中...",
     "processing": "处理中...",
 }
 
@@ -91,7 +93,7 @@ class TrayIcon:
         """更新托盘图标（线程安全）
 
         Args:
-            state: "idle" | "recording" | "processing"
+            state: "idle" | "recording" | "streaming" | "processing"
         """
         self._state = state
         if self._icon is not None:

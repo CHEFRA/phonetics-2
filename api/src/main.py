@@ -15,19 +15,21 @@ logger = setup_logger("phonetics")
 async def lifespan(app: FastAPI):
     from src.core.db import init_db
     from src.services import history
-    from src.services.sensevoice import sensevoice_service
+    from src.core.asr_registry import get_asr_service
+
+    asr_service = get_asr_service()
 
     # 初始化数据库并登记服务会话
     init_db()
     app.state.session_id = history.start_session(
         app="api",
-        model=sensevoice_service.model_id,
+        model=asr_service.model_id,
     )
 
     # 启动时预加载模型
     logger.info("正在加载 ASR 模型...")
     start_time = time.time()
-    sensevoice_service.get_model()
+    asr_service.get_model()
     duration = round(time.time() - start_time, 2)
     logger.info(f"ASR 模型加载完成，耗时 {duration}s，服务已就绪")
     yield

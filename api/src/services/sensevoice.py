@@ -6,7 +6,7 @@ import psutil
 from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 
-from src.core.config import MODEL_DIR, DEVICE, MODEL_KWARGS
+from src.core.config import DEVICE, MODEL_KWARGS
 
 # 常见 emoji 字符区间，用于清除识别结果中的表情符号
 _EMOJI_RE = re.compile(
@@ -32,18 +32,27 @@ def strip_emoji(text: str) -> str:
 
 
 class SenseVoiceService:
-    model_id = "SenseVoiceSmall"
-    _model = None
+    """SenseVoice 整段识别服务（非流式）"""
 
-    @classmethod
-    def get_model(cls):
-        if cls._model is None:
+    def __init__(self, spec=None):
+        """spec: asr_registry.ASRSpec，缺省时使用历史默认值"""
+        self.name = spec.name if spec else "sensevoice"
+        self.model_id = spec.model_id if spec else "SenseVoiceSmall"
+        self.mode = spec.mode if spec else "batch"
+        self._model = None
+
+    def reset_stream(self):
+        """SenseVoice 不支持流式，仅用于统一接口"""
+        return None
+
+    def get_model(self):
+        if self._model is None:
             proc = psutil.Process(os.getpid())
             mem_before = proc.memory_info().rss
             start_time = time.time()
 
-            cls._model = AutoModel(
-                model=MODEL_DIR,
+            self._model = AutoModel(
+                model=self.model_id,
                 device=DEVICE,
                 **MODEL_KWARGS,
             )
@@ -58,7 +67,7 @@ class SenseVoiceService:
                 f"内存={mem_before / 1024 / 1024:.0f}MB→{mem_after / 1024 / 1024:.0f}MB | "
                 f"增量={delta_mb:+.0f}MB"
             )
-        return cls._model
+        return self._model
 
     def recognize(self, audio_path: str, language: str = "auto", use_itn: bool = True):
         model = self.get_model()

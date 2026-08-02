@@ -57,8 +57,8 @@ src_state = copy.deepcopy(ori_state)                # ② 无意义深拷贝又 
 ```bash
 # 模型加载内存监控（已集成到 service 和 demo）
 cd api && uv run python -c "
-from src.services.sensevoice import sensevoice_service
-sensevoice_service.get_model()
+from src.core.asr_registry import get_asr_service
+get_asr_service().get_model()
 "
 
 # 预期输出:
