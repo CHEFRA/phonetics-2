@@ -10,10 +10,12 @@
 
 import logging
 import os
+import platform
 import sys
 import tempfile
+import threading
 import time
-import platform
+from pathlib import Path
 
 import psutil
 
@@ -44,8 +46,18 @@ import scipy.io.wavfile as wavfile
 from pynput import keyboard
 
 from audio_recorder import AudioRecorder
+from hotkey import canonical_hotkey, parse_hotkey
 from stream_typer import StreamTyper
-from src.core.asr_registry import get_asr_service
+from src.core import config
+from src.core import settings as app_settings
+from src.core.asr_registry import (
+    get_active_model_name,
+    get_asr_service,
+    get_model_dir,
+    set_active_model,
+    set_model_dir,
+    set_punc_model_dir,
+)
 from src.core.db import init_db
 from src.services import history
 
@@ -68,10 +80,30 @@ try:
 except Exception:
     _APP_VERSION = None
 
-# 热键配置（修改此处即可更改快捷键）
-# 单键：{keyboard.Key.f8}
-# 组合键：{keyboard.Key.ctrl_l, keyboard.Key.shift_l, keyboard.Key.space}
-HOTKEY_KEYS = {keyboard.Key.f8}
+# 默认热键（可在设置页修改并持久化到 settings 表）
+DEFAULT_HOTKEY = "f8"
+
+# 模型下载映射：UI 名称 -> (本地目录名, ModelScope 仓库 ID, 注册表名, 设置键)
+_MODEL_DOWNLOADS = {
+    "sensevoice": (
+        "SenseVoiceSmall",
+        "iic/SenseVoiceSmall",
+        "sensevoice",
+        "model_dir_sensevoice",
+    ),
+    "paraformer-streaming": (
+        "paraformer-zh-streaming",
+        "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online",
+        "paraformer-streaming",
+        "model_dir_streaming",
+    ),
+    "ct-punc": (
+        "ct-punc",
+        "iic/punc_ct-transformer_cn-en-common-vocab471067-large",
+        "ct-punc",
+        "model_dir_punc",
+    ),
+}
 
 # 当前 ASR 引擎（由环境变量 ASR_MODEL 决定，不触发模型加载）
 asr_service = get_asr_service()
@@ -80,7 +112,8 @@ asr_service = get_asr_service()
 class ASRClient:
     """语音输入客户端"""
 
-    def __init__(self):
+    def __init__(self, use_tray: bool = True, event_sink=None, rpc_mode: bool = False):
+        global asr_service
         self.recorder = AudioRecorder()
         self.typer = StreamTyper()
         self.state = "idle"  # idle -> recording/streaming -> processing -> idle
@@ -95,12 +128,45 @@ class ASRClient:
         self._record_duration = 0.0
         self._stream_text = ""
         self._stream_inference_ms = 0
+        self.rpc_mode = rpc_mode
+        self._event_sink = (
+            event_sink if callable(event_sink) else (lambda event, data: None)
+        )
+        # 从 settings 恢复热键、模型与运行参数
+        saved = app_settings.get_all()
+        self.hotkey_spec = saved.get("hotkey") or DEFAULT_HOTKEY
+        self.hotkey_keys = parse_hotkey(self.hotkey_spec)
+        for key, name in (
+            ("model_dir_sensevoice", "sensevoice"),
+            ("model_dir_streaming", "paraformer-streaming"),
+        ):
+            if saved.get(key):
+                set_model_dir(name, saved[key])
+        if saved.get("model_dir_punc"):
+            set_punc_model_dir(saved["model_dir_punc"])
+        saved_model = saved.get("active_model")
+        if saved_model and saved_model != get_active_model_name():
+            set_active_model(saved_model)
+            asr_service = get_asr_service()
+        try:
+            config.ASR_STREAM_CHUNK_MS = int(
+                saved.get("chunk_ms") or config.ASR_STREAM_CHUNK_MS
+            )
+        except ValueError:
+            pass
+        config.ASR_PUNC = str(saved.get("punc", "true")).lower() in (
+            "1", "true", "yes", "on",
+        )
         self._chunk_samples = (
             asr_service.chunk_samples
             if hasattr(asr_service, "chunk_samples")
             else int(AudioRecorder.SAMPLERATE * 0.6)
         )
-        self.tray = TrayIcon(on_quit=self._on_tray_quit) if HAS_TRAY else None
+        self.tray = (
+            TrayIcon(on_quit=self._on_tray_quit)
+            if use_tray and HAS_TRAY
+            else None
+        )
 
     @property
     def is_streaming_model(self) -> bool:
@@ -111,11 +177,245 @@ class ASRClient:
         """托盘菜单"退出"点击回调"""
         self._running = False
 
+    def _emit(self, event, data=None):
+        """推送事件给 Electron（RPC 模式）或日志"""
+        try:
+            self._event_sink(event, data)
+        except Exception:
+            logging.error("事件回调异常: %s", event, exc_info=True)
+
+    def _listener_alive(self) -> bool:
+        return self.listener is not None and self.listener.is_alive()
+
+    def _restart_listener(self):
+        """热键变更后重建全局监听器（先启动新监听器再停旧监听器）"""
+        if not self._running:
+            return
+        new_listener = pynput.keyboard.Listener(
+            on_press=self._on_press,
+            on_release=self._on_release,
+        )
+        new_listener.start()
+        old = self.listener
+        self.listener = new_listener
+        if old is not None:
+            try:
+                old.stop()
+            except Exception:
+                pass
+
+    def set_hotkey(self, spec: str):
+        """设置并持久化全局热键"""
+        keys = parse_hotkey(spec)
+        self.hotkey_keys = keys
+        self.hotkey_spec = canonical_hotkey(spec)
+        app_settings.set("hotkey", self.hotkey_spec)
+        self._restart_listener()
+        self._emit("hotkey_changed", {"hotkey": self.hotkey_spec})
+
+    def set_model(self, name: str):
+        """运行时切换识别引擎（不加载模型，首次使用才加载）"""
+        global asr_service
+        if self.state in ("recording", "streaming", "processing"):
+            raise RuntimeError("录音或识别中不能切换模型")
+        set_active_model(name)
+        asr_service = get_asr_service()
+        app_settings.set("active_model", name)
+        self._emit("model_changed", {"model": name, "mode": asr_service.mode})
+
+    def set_model_dir(self, key: str, path: str):
+        """设置模型目录并持久化（key: model_dir_sensevoice/streaming/punc）"""
+        global asr_service
+        if key == "model_dir_punc":
+            set_punc_model_dir(path)
+        elif key == "model_dir_sensevoice":
+            set_model_dir("sensevoice", path)
+        elif key == "model_dir_streaming":
+            set_model_dir("paraformer-streaming", path)
+        else:
+            raise ValueError(f"未知模型目录设置项: {key}")
+        app_settings.set(key, path)
+        asr_service = get_asr_service()
+        self._emit("settings_changed", {key: path})
+
+    def set_chunk_ms(self, ms: int):
+        """设置流式 chunk 粒度并持久化"""
+        if not (120 <= ms <= 2000):
+            raise ValueError("chunk 粒度需在 120-2000ms 之间")
+        config.ASR_STREAM_CHUNK_MS = ms
+        self._chunk_samples = int(AudioRecorder.SAMPLERATE * ms / 1000)
+        app_settings.set("chunk_ms", str(ms))
+        self._emit("settings_changed", {"chunk_ms": ms})
+
+    def set_punc(self, enabled: bool):
+        """设置流式最终文本是否补标点"""
+        config.ASR_PUNC = enabled
+        app_settings.set("punc", "true" if enabled else "false")
+        self._emit("settings_changed", {"punc": enabled})
+
+    def toggle_record(self) -> dict:
+        self._toggle_recording()
+        return self.get_status()
+
+    def cancel_record(self) -> dict:
+        self._cancel_recording()
+        return self.get_status()
+
+    def quit(self):
+        self._running = False
+
+    def get_status(self) -> dict:
+        proc = psutil.Process(os.getpid())
+        return {
+            "state": self.state,
+            "model": asr_service.name,
+            "model_id": asr_service.model_id,
+            "mode": asr_service.mode,
+            "hotkey": self.hotkey_spec,
+            "memory_mb": round(proc.memory_info().rss / 1048576, 1),
+            "version": _APP_VERSION or "0.1.0",
+            "session_id": self.session_id,
+            "rpc_mode": self.rpc_mode,
+            "db_path": str(config.DB_PATH),
+            "models_root": str(config.MODELS_ROOT),
+        }
+
+    def get_settings(self) -> dict:
+        """全部设置 + 只读路径信息"""
+        result = app_settings.get_all()
+        result["db_path"] = str(config.DB_PATH)
+        result["models_root"] = str(config.MODELS_ROOT)
+        return result
+
+    def set_settings(self, values: dict) -> dict:
+        """批量应用设置（白名单），触发对应运行时副作用"""
+        allowed = {
+            "hotkey", "active_model", "chunk_ms", "punc",
+            "model_dir_sensevoice", "model_dir_streaming", "model_dir_punc",
+        }
+        unknown = set(values) - allowed
+        if unknown:
+            raise ValueError(f"未知设置项: {', '.join(sorted(unknown))}")
+        if "hotkey" in values:
+            self.set_hotkey(str(values["hotkey"]))
+        if "active_model" in values:
+            self.set_model(str(values["active_model"]))
+        if "chunk_ms" in values:
+            self.set_chunk_ms(int(values["chunk_ms"]))
+        if "punc" in values:
+            self.set_punc(
+                str(values["punc"]).lower() in ("1", "true", "yes", "on")
+            )
+        for key in (
+            "model_dir_sensevoice", "model_dir_streaming", "model_dir_punc",
+        ):
+            if values.get(key):
+                self.set_model_dir(key, str(values[key]))
+        return self.get_settings()
+
+    def get_history(self, limit=50, offset=0, query="", status="", model=""):
+        return history.list_transcriptions(
+            limit=limit, offset=offset, query=query, status=status, model=model
+        )
+
+    def get_stats(self) -> dict:
+        return {
+            "overview": history.overview(),
+            "daily": history.daily_counts(30),
+            "monthly": history.monthly_counts(12),
+            "models_share": history.models_share(),
+            "latency_trend": history.latency_trend(30),
+        }
+
+    def get_models(self) -> list[dict]:
+        """模型状态列表（供模型管理页）"""
+        entries = [
+            ("sensevoice", "SenseVoice 整段识别", get_model_dir("sensevoice")),
+            (
+                "paraformer-streaming",
+                "Paraformer 流式识别",
+                get_model_dir("paraformer-streaming"),
+            ),
+            (
+                "ct-punc",
+                "流式标点补全",
+                config.STREAMING_PUNC_MODEL_DIR,
+            ),
+        ]
+        result = []
+        for name, label, model_id in entries:
+            local = Path(model_id)
+            downloaded = local.is_dir() and any(local.iterdir())
+            active = (
+                name == get_active_model_name()
+                if name != "ct-punc"
+                else (
+                    config.ASR_PUNC
+                    and get_active_model_name() == "paraformer-streaming"
+                )
+            )
+            result.append(
+                {
+                    "name": name,
+                    "label": label,
+                    "model_id": model_id,
+                    "downloaded": downloaded,
+                    "active": active,
+                }
+            )
+        return result
+
+    def download_model(self, name: str) -> dict:
+        """下载模型到 MODELS_ROOT/<本地名>，进度通过事件上报"""
+        global asr_service
+        if name not in _MODEL_DOWNLOADS:
+            raise ValueError(f"未知模型: {name!r}")
+        local_name, repo_id, registry_name, settings_key = _MODEL_DOWNLOADS[name]
+        target = Path(config.MODELS_ROOT) / local_name
+        target.mkdir(parents=True, exist_ok=True)
+        self._emit("download_started", {"model": name, "target": str(target)})
+
+        stop_flag = threading.Event()
+
+        def _monitor():
+            while not stop_flag.is_set():
+                try:
+                    size = sum(
+                        f.stat().st_size for f in target.rglob("*") if f.is_file()
+                    )
+                    self._emit(
+                        "download_progress",
+                        {"model": name, "downloaded_mb": round(size / 1048576, 1)},
+                    )
+                except Exception:
+                    pass
+                stop_flag.wait(1.0)
+
+        monitor = threading.Thread(target=_monitor, daemon=True)
+        monitor.start()
+        try:
+            from modelscope import snapshot_download
+
+            snapshot_download(repo_id, local_dir=str(target))
+        finally:
+            stop_flag.set()
+
+        if registry_name == "ct-punc":
+            set_punc_model_dir(str(target))
+        else:
+            set_model_dir(registry_name, str(target))
+        app_settings.set(settings_key, str(target))
+        if registry_name == get_active_model_name():
+            asr_service = get_asr_service()
+        self._emit("download_finished", {"model": name, "target": str(target)})
+        return {"model": name, "target": str(target)}
+
     def _set_state(self, state: str):
         """统一设置状态并同步托盘图标"""
         self.state = state
         if self.tray:
             self.tray.set_state(state)
+        self._emit("state", {"state": state})
 
     def _on_press(self, key):
         """按键按下回调"""
@@ -126,7 +426,7 @@ class ASRClient:
                 return
 
             self._pressed_keys.add(key)
-            if HOTKEY_KEYS.issubset(self._pressed_keys) and not self._trigger_lock:
+            if self.hotkey_keys.issubset(self._pressed_keys) and not self._trigger_lock:
                 self._trigger_lock = True
                 self._toggle_recording()
         except Exception:
@@ -136,7 +436,7 @@ class ASRClient:
         """按键释放回调"""
         try:
             self._pressed_keys.discard(key)
-            if not HOTKEY_KEYS.intersection(self._pressed_keys):
+            if not self.hotkey_keys.intersection(self._pressed_keys):
                 self._trigger_lock = False
         except Exception:
             logging.error("按键处理异常", exc_info=True)
@@ -156,6 +456,7 @@ class ASRClient:
         """开始录音/监听"""
         streaming = self.is_streaming_model
         self._set_state("streaming" if streaming else "recording")
+        self._emit("recording_started", {"mode": asr_service.mode})
         self._record_start_time = time.time()
         self._record_duration = 0.0
         self._stream_text = ""
@@ -207,6 +508,19 @@ class ASRClient:
                 audio_duration_ms=int(record_duration * 1000),
                 mode=asr_service.mode,
             )
+            self._emit(
+                "result",
+                {
+                    "text": "",
+                    "status": "empty",
+                    "error": None,
+                    "audio_duration_ms": int(record_duration * 1000),
+                    "inference_ms": 0,
+                    "rtf": None,
+                    "model": asr_service.model_id,
+                    "mode": asr_service.mode,
+                },
+            )
             return
 
         logging.info(
@@ -227,6 +541,7 @@ class ASRClient:
         self.typer.clear()
         asr_service.reset_stream()
         self._set_state("idle")
+        self._emit("recording_cancelled", None)
         print("已取消录音")
         logging.info("录音已取消")
 
@@ -271,6 +586,7 @@ class ASRClient:
         if new_text:
             self._stream_text += new_text
             self.typer.update(self._stream_text)
+            self._emit("partial", {"text": self._stream_text})
 
     def _handle_stream_finalize(self):
         """流式模式：处理说话结束（冲刷尾部、补标点、替换屏幕上 partial）"""
@@ -330,6 +646,19 @@ class ASRClient:
             mem_after_mb=round(mem_after_mb, 1),
             mode="stream",
         )
+        self._emit(
+            "result",
+            {
+                "text": text,
+                "status": status,
+                "error": error,
+                "audio_duration_ms": audio_duration_ms,
+                "inference_ms": inference_ms,
+                "rtf": rtf,
+                "model": asr_service.model_id,
+                "mode": "stream",
+            },
+        )
 
         if text and status == "success":
             if self.tray:
@@ -376,6 +705,19 @@ class ASRClient:
                 mem_before_mb=round(mem_before_mb, 1),
                 mem_after_mb=round(mem_after_mb, 1),
                 mode=asr_service.mode,
+            )
+            self._emit(
+                "result",
+                {
+                    "text": text,
+                    "status": status,
+                    "error": error,
+                    "audio_duration_ms": audio_duration_ms,
+                    "inference_ms": inference_ms,
+                    "rtf": rtf,
+                    "model": asr_service.model_id,
+                    "mode": asr_service.mode,
+                },
             )
             if text:
                 if self.tray:
@@ -444,33 +786,36 @@ class ASRClient:
             device=platform.platform(),
             model=asr_service.model_id,
         )
-        # 先显示托盘图标（蓝色加载中状态），再加载模型
         if self.tray:
             self.tray.start()
             self.tray.set_state("loading")
-        print("正在加载模型...")
-        logging.info("开始加载模型")
-        asr_service.get_model()
-        self._set_state("idle")
-        logging.info("模型加载完成")
-        print("监听中，按 F8 开始/停止，按 Esc 取消")
+        if self.rpc_mode:
+            # RPC 模式：启动不加载模型，由 Electron 界面触发加载
+            self._set_state("idle")
+            self._emit("ready", self.get_status())
+            print("RPC 模式就绪，等待 Electron 指令")
+        else:
+            print("正在加载模型...")
+            logging.info("开始加载模型")
+            asr_service.get_model()
+            self._set_state("idle")
+            logging.info("模型加载完成")
+            print("监听中，按 F8 开始/停止，按 Esc 取消")
 
         try:
-            with pynput.keyboard.Listener(
+            self.listener = pynput.keyboard.Listener(
                 on_press=self._on_press,
                 on_release=self._on_release,
-            ) as listener:
-                self.listener = listener
-                while self._running and listener.is_alive():
-                    if self._pending_finalize:
-                        self._handle_stream_finalize()
-                    elif self._pending_audio is not None:
-                        self._handle_batch_processing()
-                    elif self.is_streaming_model and self.state == "streaming":
-                        self._feed_stream_chunk()
-                    time.sleep(0.05)
-                if self.listener:
-                    self.listener.stop()
+            )
+            self.listener.start()
+            while self._running and self._listener_alive():
+                if self._pending_finalize:
+                    self._handle_stream_finalize()
+                elif self._pending_audio is not None:
+                    self._handle_batch_processing()
+                elif self.is_streaming_model and self.state == "streaming":
+                    self._feed_stream_chunk()
+                time.sleep(0.05)
         except KeyboardInterrupt:
             print("\n收到 Ctrl+C，正在退出...")
         finally:
