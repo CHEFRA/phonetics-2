@@ -148,7 +148,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "../build/icon.png"),
+    icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -176,7 +176,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, "../build/icon.png");
+  const iconPath = path.join(__dirname, "icon.png");
   const image = nativeImage.createFromPath(iconPath);
   tray = new Tray(image.resize({ width: 16, height: 16 }));
   tray.setToolTip("Phonetics-2");
