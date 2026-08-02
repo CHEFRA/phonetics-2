@@ -26,6 +26,25 @@ cp .env.example .env
 
 以下操作需要在api目录执行
 
+## ASR 模型切换
+
+通过环境变量 `ASR_MODEL` 选择引擎（桌面端与 API 共用）：
+
+- `sensevoice`（默认）：整段识别，沿用 `MODEL_DIR` 指定的模型
+- `paraformer-streaming`：流式识别，模型名或本地路径由 `STREAMING_MODEL_DIR` 指定
+
+流式模型与标点模型默认优先加载项目根目录 `models/` 下的本地副本
+（`models/paraformer-zh-streaming`、`models/ct-punc`），目录不存在时
+回退到 FunASR 在线别名（首次运行会自动下载到模型缓存）。环境变量里的
+模型路径支持绝对路径或相对路径（相对路径统一按项目根目录解析）。
+
+流式相关参数：
+
+- `ASR_STREAM_CHUNK_MS`：chunk 粒度（默认 600ms，CPU 压力大时可调大到 960）
+- `ASR_PUNC`：是否给最终文本补标点（默认 true，使用 ct-punc；
+  仅用于 API 上传/批量识别路径，桌面持续听写不自动补标点）
+- `STREAMING_PUNC_MODEL_DIR`：标点模型的模型名或本地路径
+
 ## 下载模型
 
 模型需要下载到项目根目录下的 `models/` 目录（与 `api/` 平级）。请确保已正确安装 git lfs。
@@ -96,9 +115,16 @@ uv run python desktop/asr_client.py
 
 操作：
 
-- F8: 开始/停止录音
-- Esc: 录音中取消录音
+- F8: 开始/停止录音或监听（流式模式会实时往焦点窗口打字）
+- Esc: 录音/监听中取消，并删除已打出的流式文本
 - 退出: 托盘右键菜单选择"退出"
+
+流式模式（`ASR_MODEL=paraformer-streaming`）是持续听写：按 F8 开始后，
+说话内容以 600ms 粒度直接累积打进 F8 按下时的焦点窗口（之后切走焦点
+也不影响，会自动拉回）；再按 F8 停止，只冲刷尾部剩余音频并追加最后一
+段文字，不做删除、不做整段替换、不自动补标点。Esc 立即停止但不冲刷
+尾部。注意流式打字依赖普通文本输入环境，vim、终端、密码框等特殊场景
+可能不兼容。
 
 ### 系统托盘图标
 
@@ -109,6 +135,7 @@ uv run python desktop/asr_client.py
 | 加载模型 | 🔵 蓝色 | 启动后自动进入 |
 | 空闲中 | 🟢 绿色 | 等待 F8 触发录音 |
 | 录音中 | 🔴 红色 | 正在录制麦克风音频 |
+| 流式监听中 | 🔴 红色 | 正在监听并实时输出文本 |
 | 处理中 | 🟡 黄色 | 正在识别音频 |
 
 右键菜单可查看当前状态或退出程序。识别完成后右下角弹出气泡通知显示识别文字。
@@ -160,5 +187,8 @@ uv run python -m src.services.history
   - 快捷键自定义
   - macOS 适配
 - [ ] 报表分析：每日/每月使用频率、延迟与 RTF 趋势、模型占比（基于历史数据）
-- [ ] 模型切换：模型注册表 + 下拉选择，SenseVoice 整段 / Paraformer 流式，设置持久化
-- [ ] 流式识别：FSMN-VAD + paraformer-zh-streaming，边说边出字，松键定稿并自动粘贴，可选 SenseVoice 精修
+- [x] 模型切换（环境变量版）：模型注册表 + `ASR_MODEL` 切换，SenseVoice 整段 / Paraformer 流式
+- [x] 桌面端流式识别：paraformer-zh-streaming 边说边出字，F8 开关持续听写，
+  不做整段替换
+- [ ] 流式断句补标点：FSMN-VAD 检测停顿自动断句，逐句补标点，不影响连续听写
+- [ ] 模型切换 UI（阶段三）：启动不加载模型，下拉/托盘选择模型后再加载

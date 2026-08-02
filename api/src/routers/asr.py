@@ -8,10 +8,11 @@ import psutil
 from src.core.logger import setup_logger
 from src.schema.asr import ASRResponse
 from src.services import history
-from src.services.sensevoice import sensevoice_service
+from src.core.asr_registry import get_asr_service
 
 router = APIRouter(tags=["asr"])
 logger = setup_logger("phonetics.asr")
+asr_service = get_asr_service()
 
 
 @router.post("", response_model=ASRResponse)
@@ -42,7 +43,7 @@ async def asr(request: Request, file: UploadFile = File(...)):
     try:
         tmp.write(content)
         tmp.close()  # 先关闭，ffmpeg 才能读取
-        text = sensevoice_service.recognize(tmp.name)
+        text = asr_service.recognize(tmp.name)
         if not text:
             status = "empty"
     except Exception as e:
@@ -60,7 +61,8 @@ async def asr(request: Request, file: UploadFile = File(...)):
     history.record_transcription(
         session_id=request.app.state.session_id,
         source="api",
-        model=sensevoice_service.model_id,
+        model=asr_service.model_id,
+        mode=asr_service.mode,
         text=text,
         status=status,
         error=error,
