@@ -158,3 +158,12 @@ uv run python -m src.services.history
 ```
 
 数据库表结构与字段说明见 [docs/database.md](docs/database.md)。
+
+## 路线图
+
+后续三个规划需求：
+
+- [x] 识别历史入库：SQLite 记录每次识别的文本、录音时长、推理耗时、RTF 与内存指标
+- [ ] 报表分析：每日/每月使用频率、延迟与 RTF 趋势、模型占比（基于历史数据）
+- [ ] 模型切换：模型注册表 + 下拉选择，SenseVoice 整段 / Paraformer 流式，设置持久化
+- [ ] 流式识别：FSMN-VAD + paraformer-zh-streaming，边说边出字，松键定稿并自动粘贴，可选 SenseVoice 精修
