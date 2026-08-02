@@ -131,5 +131,26 @@ uv run python desktop/asr_client.py
 - **直接双击**：打开 `api/scripts/` 文件夹，双击 `phonetics-asr.bat`
 - **桌面快捷方式**（方便日常使用）：
   1. 打开 `api/scripts/` 文件夹
-  2. 右键 `phonetics-asr.bat` → 发送到 → 桌面快捷方式
-  3. 创建后双击桌面图标启动
+2. 右键 `phonetics-asr.bat` → 发送到 → 桌面快捷方式
+3. 创建后双击桌面图标启动
+
+## 识别历史记录
+
+桌面客户端和 API 服务每次识别都会写入本地 SQLite 数据库（默认项目根目录
+`data/phonetics.db`，可用环境变量 `DB_PATH` 覆盖），自动创建，无需手工初始化。
+
+每条记录包含：
+
+- 识别文本、模型、模式（整段/流式）、语言
+- 录音时长、推理耗时、RTF（推理耗时/录音时长）
+- 推理前后进程内存
+- 状态（success / empty / error）
+
+命令行快速查看统计：
+
+```bash
+cd api
+uv run python -m src.services.history
+```
+
+数据库表结构与字段说明见 [docs/database.md](docs/database.md)。

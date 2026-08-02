@@ -2,6 +2,15 @@ import logging
 import sys
 
 
+def make_console_safe() -> None:
+    """控制台可能使用 GBK 编码，防止打印 emoji 等字符时崩溃"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
+
 def setup_logger(name: str = "phonetics") -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:

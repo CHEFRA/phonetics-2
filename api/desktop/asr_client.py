@@ -7,6 +7,10 @@ import tempfile
 import time
 import platform
 
+import psutil
+
+from src.core.logger import make_console_safe
+
 # 日志配置（写入临时目录，方便 pythonw 模式下排查）
 _log_file = os.path.join(tempfile.gettempdir(), "phonetics-asr.log")
 logging.basicConfig(
@@ -15,6 +19,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     force=True,
 )
+
+make_console_safe()
 
 
 def _log_exception(exc_type, exc_value, exc_traceback):
@@ -30,6 +36,8 @@ import scipy.io.wavfile as wavfile
 from pynput import keyboard
 
 from audio_recorder import AudioRecorder
+from src.core.db import init_db
+from src.services import history
 from src.services.sensevoice import sensevoice_service
 
 try:
@@ -43,6 +51,13 @@ except ImportError:
 IS_MAC = platform.system() == "Darwin"
 PASTE_KEY = keyboard.Key.cmd if IS_MAC else keyboard.Key.ctrl
 PASTE_DELAY = 0.618  # 粘贴前等待时间（秒），用于避开热键释放
+
+try:
+    from importlib.metadata import version as _pkg_version
+
+    _APP_VERSION = _pkg_version("api")
+except Exception:
+    _APP_VERSION = None
 
 # 热键配置（修改此处即可更改快捷键）
 # 单键：{keyboard.Key.f8}
@@ -61,6 +76,8 @@ class ASRClient:
         self._trigger_lock = False
         self._running = True
         self._pending_audio = None
+        self.session_id = None
+        self._record_duration = 0.0
         self.tray = TrayIcon(on_quit=self._on_tray_quit) if HAS_TRAY else None
 
     def _on_tray_quit(self):
@@ -75,21 +92,27 @@ class ASRClient:
 
     def _on_press(self, key):
         """按键按下回调"""
-        if key == keyboard.Key.esc:
-            if self.state == "recording":
-                self._cancel_recording()
-            return
+        try:
+            if key == keyboard.Key.esc:
+                if self.state == "recording":
+                    self._cancel_recording()
+                return
 
-        self._pressed_keys.add(key)
-        if HOTKEY_KEYS.issubset(self._pressed_keys) and not self._trigger_lock:
-            self._trigger_lock = True
-            self._toggle_recording()
+            self._pressed_keys.add(key)
+            if HOTKEY_KEYS.issubset(self._pressed_keys) and not self._trigger_lock:
+                self._trigger_lock = True
+                self._toggle_recording()
+        except Exception:
+            logging.error("按键处理异常", exc_info=True)
 
     def _on_release(self, key):
         """按键释放回调"""
-        self._pressed_keys.discard(key)
-        if not HOTKEY_KEYS.intersection(self._pressed_keys):
-            self._trigger_lock = False
+        try:
+            self._pressed_keys.discard(key)
+            if not HOTKEY_KEYS.intersection(self._pressed_keys):
+                self._trigger_lock = False
+        except Exception:
+            logging.error("按键处理异常", exc_info=True)
 
     def _toggle_recording(self):
         """切换录音状态"""
@@ -106,20 +129,30 @@ class ASRClient:
         """开始录音"""
         self._set_state("recording")
         self._record_start_time = time.time()
+        self._record_duration = 0.0
         self.recorder.start()
-        print("\U0001f534 录音中...")
+        print("录音中...")
 
     def _stop_recording(self):
         """停止录音"""
-        print("⏹ 停止录音")
+        print("停止录音")
         audio_data = self.recorder.stop()
 
         record_duration = time.time() - self._record_start_time
-        print(f"⏵ 录音时长: {record_duration:.2f}秒")
+        self._record_duration = record_duration
+        print(f"录音时长: {record_duration:.2f}秒")
 
         if len(audio_data) == 0:
-            print("❌ 录音为空")
+            print("录音为空")
             logging.warning("录音为空")
+            history.record_transcription(
+                session_id=self.session_id,
+                source="desktop",
+                model=sensevoice_service.model_id,
+                text="",
+                status="empty",
+                audio_duration_ms=int(record_duration * 1000),
+            )
             return
 
         logging.info(
@@ -131,26 +164,34 @@ class ASRClient:
         """取消当前录音，丢弃音频，回到空闲"""
         self.recorder.stop()
         self._pending_audio = None
+        self._record_duration = 0.0
         self._set_state("idle")
-        print("⏹ 已取消录音")
+        print("已取消录音")
         logging.info("录音已取消")
 
-    def _recognize(self, wav_path: str) -> str:
-        """直接调用本地模型识别音频"""
+    def _recognize(self, wav_path: str):
+        """直接调用本地模型识别音频
+
+        返回 (文本, 状态, 错误, 推理耗时ms, 推理前内存MB, 推理后内存MB)
+        """
+        proc = psutil.Process(os.getpid())
+        mem_before_mb = proc.memory_info().rss / 1024 / 1024
         start_time = time.time()
-        # print(f"⏳ 调用本地模型 | time={time.strftime('%H:%M:%S')}")
         try:
             text = sensevoice_service.recognize(wav_path)
-
-            api_duration = time.time() - start_time
-            print(f"⏵ 识别时长: {api_duration:.2f}秒")
-            logging.info(f"识别完成, 时长={api_duration:.2f}s, text='{text[:50]}'")
-
-            return text
         except Exception as e:
-            print(f"❌ 识别出错: {e}")
+            inference_ms = int((time.time() - start_time) * 1000)
+            mem_after_mb = proc.memory_info().rss / 1024 / 1024
+            print(f"识别出错: {e}")
             logging.error("识别异常", exc_info=True)
-            return ""
+            return "", "error", str(e), inference_ms, mem_before_mb, mem_after_mb
+
+        inference_ms = int((time.time() - start_time) * 1000)
+        mem_after_mb = proc.memory_info().rss / 1024 / 1024
+        print(f"识别时长: {inference_ms / 1000:.2f}秒")
+        logging.info(f"识别完成, 时长={inference_ms}ms, text='{text[:50]}'")
+        status = "success" if text else "empty"
+        return text, status, None, inference_ms, mem_before_mb, mem_after_mb
 
     def _paste_to_focus(self, text: str):
         """将文本粘贴到焦点窗口"""
@@ -182,6 +223,8 @@ class ASRClient:
 
     def _cleanup(self):
         """清理资源"""
+        if self.session_id:
+            history.end_session(self.session_id)
         if self.tray:
             self.tray.stop()
         if self.recorder._stream is not None:
@@ -197,6 +240,13 @@ class ASRClient:
 
     def run(self):
         """启动客户端"""
+        init_db()
+        self.session_id = history.start_session(
+            app="desktop",
+            version=_APP_VERSION,
+            device=platform.platform(),
+            model=sensevoice_service.model_id,
+        )
         # 先显示托盘图标（蓝色加载中状态），再加载模型
         if self.tray:
             self.tray.start()
@@ -206,7 +256,7 @@ class ASRClient:
         sensevoice_service.get_model()
         self._set_state("idle")
         logging.info("模型加载完成")
-        print("监听中，按 F8 开始录音，按 Esc 退出")
+        print("监听中，按 F8 开始/停止录音，按 Esc 取消录音")
 
         try:
             with pynput.keyboard.Listener(
@@ -231,15 +281,36 @@ class ASRClient:
                             wavfile.write(
                                 temp_wav, AudioRecorder.SAMPLERATE, audio_data
                             )
-                            text = self._recognize(temp_wav)
+                            text, status, error, inference_ms, mem_before_mb, mem_after_mb = (
+                                self._recognize(temp_wav)
+                            )
+                            audio_duration_ms = int(self._record_duration * 1000)
+                            rtf = (
+                                round(inference_ms / audio_duration_ms, 4)
+                                if audio_duration_ms > 0
+                                else None
+                            )
+                            history.record_transcription(
+                                session_id=self.session_id,
+                                source="desktop",
+                                model=sensevoice_service.model_id,
+                                text=text,
+                                status=status,
+                                error=error,
+                                audio_duration_ms=audio_duration_ms,
+                                inference_ms=inference_ms,
+                                rtf=rtf,
+                                mem_before_mb=round(mem_before_mb, 1),
+                                mem_after_mb=round(mem_after_mb, 1),
+                            )
                             if text:
                                 if self.tray:
                                     self.tray.notify(text, "语音识别结果")
                                 time.sleep(PASTE_DELAY)  # 避开热键释放
                                 self._paste_to_focus(text)
-                                print(f"✅ {text}")
+                                print(f"识别成功: {text}")
                             else:
-                                print("❌ 识别失败")
+                                print("识别失败")
                         finally:
                             os.unlink(temp_wav)
 

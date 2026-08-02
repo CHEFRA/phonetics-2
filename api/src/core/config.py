@@ -23,3 +23,6 @@ DEVICE = os.getenv("DEVICE", "cpu")
 MODEL_KWARGS = {
     "disable_update": True,
 }
+
+# 数据库文件路径（默认项目根目录 data/phonetics.db，可用环境变量覆盖）
+DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "phonetics.db")))
