@@ -18,13 +18,8 @@ import torchaudio
 
 from funasr import AutoModel
 
-from src.core.config import (
-    ASR_PUNC,
-    ASR_STREAM_CHUNK_MS,
-    DEVICE,
-    MODEL_KWARGS,
-    STREAMING_PUNC_MODEL_DIR,
-)
+from src.core import config
+from src.core.config import DEVICE, MODEL_KWARGS
 
 
 class StreamingParaformerService:
@@ -42,7 +37,7 @@ class StreamingParaformerService:
     @property
     def chunk_size(self):
         """FunASR 流式 chunk 配置：[0, 显示粒度, 前瞻]，单位 60ms"""
-        units = max(5, round(ASR_STREAM_CHUNK_MS / 60))
+        units = max(5, round(config.ASR_STREAM_CHUNK_MS / 60))
         return [0, units, max(1, units // 2)]
 
     @property
@@ -106,12 +101,12 @@ class StreamingParaformerService:
     def punctuate(self, text: str) -> str:
         """给最终文本补标点；ct-punc 不可用时原样返回"""
         text = text or ""
-        if not text or not ASR_PUNC:
+        if not text or not config.ASR_PUNC:
             return text
         try:
             if self._punc_model is None:
                 self._punc_model = AutoModel(
-                    model=STREAMING_PUNC_MODEL_DIR,
+                    model=config.STREAMING_PUNC_MODEL_DIR,
                     device=DEVICE,
                     **MODEL_KWARGS,
                 )

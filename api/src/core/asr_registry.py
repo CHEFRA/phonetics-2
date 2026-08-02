@@ -1,15 +1,11 @@
 """ASR 引擎注册表
 
-通过环境变量 ASR_MODEL 选择当前使用的引擎：
-  - sensevoice: SenseVoice 整段识别（默认，行为与历史版本一致）
-  - paraformer-streaming: FunASR 流式 Paraformer
-
-统一入口 get_asr_service() 返回当前引擎的服务单例，
-桌面端、API、demo 都从这里取服务，不再直接 import 具体服务。
-后续阶段三（启动不加载模型、UI 选择模型）可在此注册表基础上扩展，
-例如把配置来源从环境变量换成数据库 settings 表。
+统一入口 get_asr_service() 返回当前引擎的服务单例，桌面端、API、demo
+都从这里取服务，不再直接 import 具体服务。模型保持懒加载：
+set_active_model()/set_model_dir() 只替换单例，不加载模型。
 """
 
+from src.core import config
 from src.core.config import ASR_MODEL, MODEL_DIR, STREAMING_MODEL_DIR
 from src.services.sensevoice import SenseVoiceService
 from src.services.streaming_paraformer import StreamingParaformerService
@@ -41,6 +37,7 @@ _SPECS = {
 }
 
 _active_service = None
+_active_model = ASR_MODEL if ASR_MODEL in _SPECS else "sensevoice"
 
 
 def available_models() -> list[str]:
@@ -48,13 +45,54 @@ def available_models() -> list[str]:
     return list(_SPECS)
 
 
+def get_active_model_name() -> str:
+    """当前激活的引擎名"""
+    return _active_model
+
+
+def get_model_dir(name: str) -> str:
+    """指定引擎当前使用的模型路径/别名"""
+    spec = _SPECS.get(name)
+    return spec.model_id if spec else ""
+
+
+def set_model_dir(name: str, model_dir: str) -> None:
+    """更新引擎模型路径并重置已加载服务（不加载模型）"""
+    global _active_service
+    spec = _SPECS.get(name)
+    if spec is None:
+        raise ValueError(f"未知模型: {name!r}，可选值: {', '.join(_SPECS)}")
+    if not model_dir:
+        return
+    _SPECS[name] = ASRSpec(spec.name, spec.service_cls, model_dir, spec.mode)
+    if _active_service is not None and _active_service.name == name:
+        _active_service = None
+
+
+def set_punc_model_dir(model_dir: str) -> None:
+    """更新流式标点模型路径（运行时生效）"""
+    if model_dir:
+        config.STREAMING_PUNC_MODEL_DIR = model_dir
+
+
+def set_active_model(name: str) -> None:
+    """切换当前引擎（只替换单例，模型保持懒加载）"""
+    global _active_service, _active_model
+    if name not in _SPECS:
+        raise ValueError(
+            f"未知的 ASR_MODEL: {name!r}，可选值: {', '.join(_SPECS)}"
+        )
+    _active_model = name
+    _active_service = None
+
+
 def get_asr_service():
     """返回当前 ASR_MODEL 对应的服务单例（不触发模型加载）"""
     global _active_service
-    spec = _SPECS.get(ASR_MODEL)
+    spec = _SPECS.get(_active_model)
     if spec is None:
         raise ValueError(
-            f"未知的 ASR_MODEL: {ASR_MODEL!r}，可选值: {', '.join(_SPECS)}"
+            f"未知的 ASR_MODEL: {_active_model!r}，可选值: {', '.join(_SPECS)}"
         )
     if _active_service is None or _active_service.name != spec.name:
         _active_service = spec.service_cls(spec)

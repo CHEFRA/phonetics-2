@@ -138,6 +138,68 @@ def overview() -> dict:
     return dict(row)
 
 
+def list_transcriptions(
+    limit: int = 50,
+    offset: int = 0,
+    query: str = "",
+    status: str = "",
+    model: str = "",
+) -> tuple[list[dict], int]:
+    """分页查询转写记录，支持文本搜索与状态/模型过滤，返回 (rows, total)"""
+    clauses: list[str] = []
+    params: list = []
+    if query:
+        clauses.append("text LIKE ?")
+        params.append(f"%{query}%")
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if model:
+        clauses.append("model = ?")
+        params.append(model)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with get_conn() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS cnt FROM transcriptions {where}", params
+        ).fetchone()["cnt"]
+        rows = conn.execute(
+            f"SELECT * FROM transcriptions {where} "
+            "ORDER BY id DESC LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        ).fetchall()
+    return [dict(row) for row in rows], total
+
+
+def models_share() -> list[dict]:
+    """各模型识别次数与占比（按次数降序）"""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT model, COUNT(*) AS cnt FROM transcriptions "
+            "GROUP BY model ORDER BY cnt DESC"
+        ).fetchall()
+    total = sum(row["cnt"] for row in rows) or 1
+    return [
+        {**dict(row), "pct": round(row["cnt"] * 100.0 / total, 1)}
+        for row in rows
+    ]
+
+
+def latency_trend(days: int = 30) -> list[dict]:
+    """每日平均推理耗时与 RTF（仅成功记录）"""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT substr(created_at, 1, 10) AS day, "
+            "AVG(inference_ms) AS avg_inference_ms, "
+            "AVG(rtf) AS avg_rtf, COUNT(*) AS cnt "
+            "FROM transcriptions "
+            "WHERE status = 'success' "
+            "AND created_at >= datetime('now', 'localtime', ?) "
+            "GROUP BY day ORDER BY day",
+            (f"-{days - 1} days",),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def _print_report() -> None:
     """命令行快速查看历史统计"""
     init_db()

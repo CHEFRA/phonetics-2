@@ -33,3 +33,12 @@ tray = [
     "pystray>=0.19.5",
     "pillow>=10.0.0",
 ]
+models = [
+    "modelscope>=1.20",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.11",
+    "pytest>=8.3",
+]
