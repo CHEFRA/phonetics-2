@@ -98,6 +98,12 @@ curl -X POST "http://localhost:8000/api/v1/asr" -F "file=@../data/audio/zh.mp3"
 
 无需启动 API 服务，直接录制麦克风音频并识别。
 
+窗口版（推荐）：Electron + React 控制台，Python 以子进程方式运行，
+支持历史/统计/模型管理/设置页面，打包为 Windows 安装包。
+详见 [docs/desktop-app.md](../docs/desktop-app.md)。
+
+命令行/托盘版：
+
 ```bash
 # 安装所有依赖（含命令行客户端 + 系统托盘）
 uv sync --all-extras
@@ -178,11 +184,11 @@ uv run python -m src.services.history
 - [x] 第一个可用 bat 启动脚本，版本管理，合并到 master
 - [x] FunASR 内存三倍占用：已查明根因（Windows 特性）
   - 详见 [docs/memory-experiment-report.md](docs/memory-experiment-report.md)
-- [ ] 桌面端优化 `desktop/audio_recorder.py`
-  - 日志优化
-  - 快捷键自定义
-  - macOS 适配
-- [ ] 报表分析：每日/每月使用频率、延迟与 RTF 趋势、模型占比（基于历史数据）
+- [x] 桌面端日志优化与快捷键自定义（设置页持久化到 settings 表）
+- [ ] 桌面端 macOS 适配（窗口版架构已预留，构建需在 macOS 上执行）
+- [x] 报表分析：每日/每月使用频率、延迟与 RTF 趋势、模型占比（统计页）
 - [x] 模型切换（环境变量版）：模型注册表 + `ASR_MODEL` 切换，SenseVoice 整段 / Paraformer 流式
 - [x] 桌面端流式识别：paraformer-zh-streaming 边说边出字，F8 定稿替换并补标点
-- [ ] 模型切换 UI（阶段三）：启动不加载模型，下拉/托盘选择模型后再加载
+- [x] 模型切换 UI（阶段三）：启动不加载模型，模型页选择/下载后再加载
+- [x] Electron 桌面窗口：概览/历史/统计/模型/设置五页，stdio RPC 子进程
+- [ ] Windows 安装包（NSIS）构建与验收：见 [docs/desktop-app.md](../docs/desktop-app.md)

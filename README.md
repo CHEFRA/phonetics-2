@@ -15,6 +15,12 @@
 | 模块 | 说明 | 文档 |
 |------|------|------|
 | api/ | FastAPI 后端服务、Demo 脚本、桌面客户端 | [README](api/README.md) |
-| web/ | React 前端 | (开发中) |
+| web/ | Electron 桌面应用（窗口 + 托盘 + 安装包） | [desktop-app.md](docs/desktop-app.md) |
 | data/ | 测试音频数据 | - |
 | api/docs/ | 设计文档与数据库字段说明 | - |
+
+## 桌面应用
+
+Electron + React 窗口控制台：状态概览、识别历史、统计报表、模型管理与
+设置；Python 子进程继续负责全局热键、录音与本地模型推理。
+架构与打包说明见 [docs/desktop-app.md](docs/desktop-app.md)。
