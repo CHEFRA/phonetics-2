@@ -22,10 +22,18 @@ hiddenimports += collect_submodules("pynput")
 hiddenimports += collect_submodules("sounddevice")
 hiddenimports += collect_submodules("soundfile")
 hiddenimports += collect_submodules("pyperclip")
+hiddenimports += [
+    "asr_client",
+    "rpc_protocol",
+    "hotkey",
+    "audio_recorder",
+    "stream_typer",
+    "tray_icon",
+]
 
 a = Analysis(
     ["desktop/rpc_server.py"],
-    pathex=["."],
+    pathex=[".", "desktop"],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
