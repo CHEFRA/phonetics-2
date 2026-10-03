@@ -13,8 +13,15 @@ load_dotenv(API_DIR / ".env")
 # 项目根目录
 BASE_DIR = PROJECT_DIR
 
+
+def _anchor_api_path(value: str) -> Path:
+    """相对路径锚定到 api/ 目录，避免随启动目录（cwd）漂移"""
+    path = Path(value)
+    return path if path.is_absolute() else (API_DIR / path).resolve()
+
+
 # 模型根目录（打包后由 Electron 指向用户数据目录；默认项目 models/）
-MODELS_ROOT = Path(os.getenv("MODELS_ROOT", str(BASE_DIR / "models")))
+MODELS_ROOT = _anchor_api_path(os.getenv("MODELS_ROOT") or str(BASE_DIR / "models"))
 
 
 def _resolve_model_dir(env_key: str, local_name: str, fallback_alias: str) -> str:
@@ -57,4 +64,4 @@ ASR_STREAM_CHUNK_MS = int(os.getenv("ASR_STREAM_CHUNK_MS", "600"))
 ASR_PUNC = os.getenv("ASR_PUNC", "true").lower() in ("1", "true", "yes", "on")
 
 # 数据库文件路径（默认项目根目录 data/phonetics.db，可用环境变量覆盖）
-DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "phonetics.db")))
+DB_PATH = _anchor_api_path(os.getenv("DB_PATH") or str(BASE_DIR / "data" / "phonetics.db"))
