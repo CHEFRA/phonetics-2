@@ -2,6 +2,19 @@
 
 本文件记录项目的所有重要变更，格式遵循 Conventional Commits。
 
+## 0.8.0 (2026-10-04)
+
+### Features
+
+- macos-tray: 终端版语音输入支持 macOS (Apple Silicon)，与 Windows 功能对齐（全局热键、录音、SenseVoice 本地识别、自动粘贴、菜单栏图标、识别历史入库）
+- macos-tray: 支持 HOTKEY 环境变量自定义全局热键，默认 f8
+- scripts: 添加 macOS 启动脚本 phonetics-asr-mac.command
+
+### Bug Fixes
+
+- macos-tray: pynput 键盘输入源查询与 NSApp 启动并发导致崩溃，改为进入托盘循环前启动热键监听
+- macos-tray: Ctrl+C 经 NSApp.terminate 硬退出不落库，通过 applicationShouldTerminate 委托兜底清理
+
 ## 0.7.0 (2026-08-02)
 
 ### Features
