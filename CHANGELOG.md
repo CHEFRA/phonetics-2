@@ -14,6 +14,7 @@
 
 - macos-tray: pynput 键盘输入源查询与 NSApp 启动并发导致崩溃，改为进入托盘循环前启动热键监听
 - macos-tray: Ctrl+C 经 NSApp.terminate 硬退出不落库，通过 applicationShouldTerminate 委托兜底清理
+- macos-tray: 非打包进程默认 Prohibited 策略导致菜单栏图标不可见，声明 Accessory 激活策略修复
 
 ## 0.7.0 (2026-08-02)
 
