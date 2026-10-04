@@ -24,13 +24,19 @@ _GUIDE = """\
 - 按热键开始/停止录音
 - 识别结果自动粘贴到焦点窗口
 
-请打开 系统设置 → 隐私与安全性 → 辅助功能,
-把运行本程序的终端 App(如 Terminal / iTerm)的开关打开,
-然后重启本程序。
+授权方法(二选一):
+1. 手动: Apple 菜单 → 系统设置 → 隐私与安全性,
+   往下滚动找到「辅助功能」,给运行本程序的终端 App 打开开关
+2. 终端执行以下命令,直达设置页:
+   open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
 
-同时请检查:
-- 隐私与安全性 → 输入监控: 全局热键需要,同样授权给终端 App
-- 麦克风: 首次录音时系统会弹窗请求,允许即可
+列表里没有终端 App 时点 + 添加(终端.app 在 应用程序/实用工具/ 下),
+改完后完全退出终端(Cmd+Q)再重开本程序。
+
+热键监听还需要同列表里的「输入监控」,可执行:
+   open "x-apple.systempreferences:com.apple.preference.security?Privacy_InputMonitoring"
+
+麦克风无需手动设置,首次录音时系统会弹窗请求。
 """
 
 
