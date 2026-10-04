@@ -112,6 +112,21 @@ class _PumpedIcon(pystray.Icon):
     #: 由 TrayBar.run 注入,terminate 退出前的清理回调
     _on_terminate = None
 
+    def __init__(self, *args, **kwargs):
+        # 终端启动的非打包进程默认激活策略是 Prohibited(禁止 UI),
+        # 新版 macOS 会把它的状态栏图标摆在屏幕外导致"看不见";
+        # 必须在创建状态栏图标前声明为 Accessory(菜单栏辅助应用)
+        if Foundation is not None:
+            from AppKit import (
+                NSApplication,
+                NSApplicationActivationPolicyAccessory,
+            )
+
+            NSApplication.sharedApplication().setActivationPolicy_(
+                NSApplicationActivationPolicyAccessory
+            )
+        super().__init__(*args, **kwargs)
+
     def _mark_ready(self):
         super()._mark_ready()
         if self._pump_callback is not None:
