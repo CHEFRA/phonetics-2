@@ -156,8 +156,56 @@ scripts/phonetics-asr-mac.command
 黄=处理）。macOS 没有悬停提示，"状态 + 实时内存"显示在下拉菜单
 第一项，识别结果通过系统通知弹出。
 
-自定义热键：在 `api/.env` 中配置 `HOTKEY`，如 `HOTKEY=ctrl+shift+space`，
-支持 f1~f20、ctrl/shift/alt(option)/cmd/space 等组合，默认 f8。
+自定义热键: 支持 HOTKEY 环境变量,详见下方「快捷键自定义(HOTKEY)」。
+
+## 快捷键自定义(HOTKEY)
+
+macOS 终端版客户端通过 `api/.env` 的 `HOTKEY` 环境变量自定义全局热键:
+
+```bash
+HOTKEY=ctrl+option+cmd
+```
+
+修改后重启客户端生效,启动时终端会打印当前生效的热键。不配置时默认 `f8`。
+
+### 语法
+
+- 多个键用 `+` 连接,顺序无关、大小写不敏感: `ctrl+shift+space` 与 `Shift + CTRL + Space` 等价
+- 触发方式: 同时按住全部按键(录音中按 Esc 仍可取消)
+- Windows 桌面客户端暂不支持环境变量配置,固定为 F8;如需修改,编辑
+  `desktop/asr_client.py` 中的 `HOTKEY_KEYS` 常量
+
+### 可用按键
+
+| 写法 | 对应键 | 说明 |
+|------|--------|------|
+| ctrl / control | ⌃ Control | |
+| shift | ⇧ Shift | |
+| alt / option | ⌥ Option | |
+| cmd / command | ⌘ Command | |
+| space | 空格 | |
+| tab | Tab | |
+| enter / return | 回车 | |
+| f1 ~ f20 | 功能键 | Mac 键盘需按 fn,或开启"将 F1、F2 等键用作标准功能键" |
+| 单个字符 | 字母、数字等 | 如 `a`、`1` |
+
+不支持 `fn` 键: pynput 在 macOS 上未暴露该键码,程序收不到 fn 事件。
+
+### 组合推荐与常见冲突
+
+| 组合 | 冲突情况 | 结论 |
+|------|----------|------|
+| 三个修饰键(如 ctrl+option+cmd) | 无 | 推荐 |
+| 修饰键 + space/tab(如 ctrl+shift+space) | 少见 | 推荐 |
+| cmd+space | Spotlight | 不可用 |
+| ctrl+space | 多数中文输入法的中英切换 | 不建议 |
+| option+space | Raycast / Alfred 默认启动键 | 不建议 |
+| cmd+tab、cmd+` | 切换应用,日常高频触发 | 不可用 |
+| f5 | 听写 | 不建议 |
+| f6 | 专注模式 | 不建议 |
+| f7 ~ f12 | 媒体与音量键 | 需 fn,体验差 |
+| 含 esc | 与"录音中取消"冲突 | 不建议 |
+| option+字母 | 打特殊字符(如 ß、å)时误触 | 不建议 |
 
 ## 识别历史记录
 
