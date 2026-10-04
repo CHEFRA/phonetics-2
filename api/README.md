@@ -125,6 +125,40 @@ uv run python desktop/asr_client.py
 2. 右键 `phonetics-asr.bat` → 发送到 → 桌面快捷方式
 3. 创建后双击桌面图标启动
 
+### macOS（Apple Silicon）终端版
+
+macOS 上为独立实现（`desktop/macos/`），线程模型与 Windows 不同
+（菜单栏图标必须占用主线程），不改动 Windows 侧任何代码。
+
+```bash
+# 在 api 目录下启动
+uv run python -m desktop.macos.mac_client
+
+# 或双击启动脚本（Finder 中）
+scripts/phonetics-asr-mac.command
+```
+
+首次使用需要在 系统设置 → 隐私与安全性 中，把运行本程序的终端 App
+（如 Terminal / iTerm）授权给以下权限：
+
+- 辅助功能：识别结果模拟 Cmd+V 粘贴
+- 输入监控：全局热键监听
+- 麦克风：录音（首次录音时系统弹窗，允许即可）
+
+操作：
+
+- F8: 开始/停止录音（Mac 键盘 F8 默认是媒体键，需同时按 fn，或在
+  系统设置开启"将 F1、F2 等键用作标准功能键"）
+- Esc: 录音中取消录音
+- 退出: 菜单栏图标下拉菜单选择"退出"，或终端 Ctrl+C
+
+菜单栏图标颜色含义与 Windows 托盘一致（蓝=加载、绿=空闲、红=录音、
+黄=处理）。macOS 没有悬停提示，"状态 + 实时内存"显示在下拉菜单
+第一项，识别结果通过系统通知弹出。
+
+自定义热键：在 `api/.env` 中配置 `HOTKEY`，如 `HOTKEY=ctrl+shift+space`，
+支持 f1~f20、ctrl/shift/alt(option)/cmd/space 等组合，默认 f8。
+
 ## 识别历史记录
 
 桌面客户端和 API 服务每次识别都会写入本地 SQLite 数据库（默认项目根目录
@@ -155,10 +189,11 @@ uv run python -m src.services.history
 - [x] 第一个可用 bat 启动脚本，版本管理，合并到 master
 - [x] FunASR 内存三倍占用：已查明根因（Windows 特性）
   - 详见 [docs/memory-experiment-report.md](docs/memory-experiment-report.md)
+- [x] macOS 适配：终端版语音输入（Apple Silicon），菜单栏图标 + 全局热键，
+  支持 HOTKEY 环境变量自定义热键，见上方 macOS 章节
 - [ ] 桌面端优化 `desktop/audio_recorder.py`
   - 日志优化
-  - 快捷键自定义
-  - macOS 适配
+  - 快捷键自定义（Windows 端；macOS 已支持 HOTKEY 环境变量）
 - [ ] 报表分析：每日/每月使用频率、延迟与 RTF 趋势、模型占比（基于历史数据）
 - [ ] 模型切换：模型注册表 + 下拉选择，SenseVoice 整段 / Paraformer 流式，设置持久化
 - [ ] 流式识别：FSMN-VAD + paraformer-zh-streaming，边说边出字，松键定稿并自动粘贴，可选 SenseVoice 精修
